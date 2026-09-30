@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/alibaba/open-code-review/internal/llm/copilot"
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/bedrock"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -434,6 +435,10 @@ type ClientConfig struct {
 	// Empty means the standard AWS credential chain decides.
 	AWSProfile string
 	AWSRegion  string
+
+	// copilot authenticates every attempt with a fresh Copilot token. Like
+	// the handles above it is set only by NewLLMClient.
+	copilot *copilot.Auth
 }
 
 // retryCodesMiddleware returns an HTTP middleware that forces the SDK to retry
@@ -492,6 +497,7 @@ func NewLLMClient(ep ResolvedEndpoint, collector *RetryCollector, raw *RawHolder
 		rawHolder:      raw,
 		AWSProfile:     ep.AWSProfile,
 		AWSRegion:      ep.AWSRegion,
+		copilot:        ep.Copilot,
 	}
 	switch ep.Protocol {
 	case ProtocolAnthropic:
@@ -603,6 +609,9 @@ func NewOpenAIClient(cfg ClientConfig) *OpenAIClient {
 		openaiopt.WithHeader("User-Agent", userAgent("")),
 		openaiopt.WithRequestTimeout(cfg.Timeout),
 		openaiopt.WithHTTPClient(httpClientWithHeaderTimeout(cfg.Timeout)),
+	}
+	if cfg.copilot != nil {
+		opts = append(opts, openaiopt.WithMiddleware(cfg.copilot.Middleware))
 	}
 	if mw := retryCodesMiddleware(cfg.RetryCodes); mw != nil {
 		opts = append(opts, openaiopt.WithMiddleware(mw))
@@ -1194,6 +1203,9 @@ func NewAnthropicClient(cfg ClientConfig) *AnthropicClient {
 		)
 	}
 
+	if cfg.copilot != nil {
+		opts = append(opts, option.WithMiddleware(cfg.copilot.Middleware))
+	}
 	if mw := retryCodesMiddleware(cfg.RetryCodes); mw != nil {
 		opts = append(opts, option.WithMiddleware(mw))
 	}

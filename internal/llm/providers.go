@@ -35,6 +35,12 @@ type Provider struct {
 	// there is no key to configure and demanding one would make the provider
 	// impossible to use.
 	AmbientAuth bool
+
+	// CopilotAuth marks the GitHub Copilot provider: its credential is a GitHub
+	// OAuth token that is exchanged for short-lived Copilot API tokens at
+	// request time, its host comes from that token, and its protocol follows
+	// the model family (see package copilot).
+	CopilotAuth bool
 }
 
 // After modifying the built-in provider registry, run `go generate ./internal/llm`
@@ -106,6 +112,25 @@ var registry = []Provider{
 			"gpt-5.6-sol",
 			"gpt-5.6-terra",
 			"gpt-5.6-luna",
+		},
+	},
+	{
+		// BaseURL is a placeholder: requests go to the host named by the
+		// account's Copilot token unless the entry pins a url. Protocol too is
+		// only the default for the picker; the resolver routes by model family.
+		Name:        "github-copilot",
+		DisplayName: "GitHub Copilot (subscription)",
+		Protocol:    ProtocolOpenAIChatCompletions,
+		BaseURL:     "https://api.individual.githubcopilot.com",
+		EnvVar:      "COPILOT_GITHUB_TOKEN",
+		CopilotAuth: true,
+		Models: []string{
+			"claude-sonnet-5",
+			"claude-opus-5",
+			"claude-haiku-4.5",
+			"gpt-5.5",
+			"gpt-5-mini",
+			"gemini-3.8-flash",
 		},
 	},
 	{

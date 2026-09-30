@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/alibaba/open-code-review/internal/llm/copilot"
 )
 
 // ResolvedEndpoint holds the resolved LLM endpoint configuration.
@@ -45,6 +47,11 @@ type ResolvedEndpoint struct {
 	// providers. Empty means "let the AWS SDK decide".
 	AWSProfile string
 	AWSRegion  string
+
+	// Copilot is set for the GitHub Copilot provider. Token then holds the
+	// GitHub OAuth token, which the client exchanges per request rather than
+	// sending as is.
+	Copilot *copilot.Auth
 }
 
 // Environment variable names for OCR-specific configuration.
@@ -452,6 +459,20 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 			apiKey = v
 		}
 	}
+	// The Copilot login lives outside config.json, so it is the last resort
+	// after api_key, api_key_cmd and COPILOT_GITHUB_TOKEN.
+	copilotAuth := isPreset && preset.CopilotAuth
+	if copilotAuth && apiKey == "" && apiKeyCmd == "" {
+		stored, err := copilot.LoadGitHubToken()
+		if err != nil {
+			return ResolvedEndpoint{}, false, fmt.Errorf("provider %q: read Copilot login: %w", cfg.Provider, err)
+		}
+		if stored == "" {
+			return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no GitHub credential; run 'ocr copilot login' or set $%s", cfg.Provider, copilot.EnvToken)
+		}
+		apiKey = stored
+	}
+
 	var url, protocol, authHeader, model string
 	var extraBody map[string]any
 
@@ -531,7 +552,9 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	// supported value, and the one to use when spend has to be attributed — can
 	// never appear in a list compiled upstream. The list stays a picker for
 	// `ocr config model`; it does not gate an override.
-	gateOverrideOnModelList := !ambientAuth
+	// The Copilot catalog is per account and changes without a release, so the
+	// preset list cannot gate an override either.
+	gateOverrideOnModelList := !ambientAuth && !copilotAuth
 
 	// Apply model override with validation.
 	if modelOverride != "" {
@@ -550,6 +573,10 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 
 	if model == "" {
 		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no model configured; run 'ocr config model' to select one or pass --model", cfg.Provider)
+	}
+
+	if copilotAuth && entry.Protocol == "" {
+		protocol = copilot.ProtocolForModel(model)
 	}
 
 	if protocol == ProtocolAnthropic {
@@ -603,6 +630,11 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 		apiKey = resolved
 	}
 
+	var copilotEndpoint *copilot.Auth
+	if copilotAuth {
+		copilotEndpoint = &copilot.Auth{Source: copilot.NewTokenSource(apiKey), RewriteHost: entry.URL == ""}
+	}
+
 	return ResolvedEndpoint{
 		URL:          url,
 		Token:        apiKey,
@@ -618,6 +650,7 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 		AmbientAuth:  ambientAuth,
 		AWSProfile:   entry.AWSProfile,
 		AWSRegion:    entry.AWSRegion,
+		Copilot:      copilotEndpoint,
 	}, true, nil
 }
 
