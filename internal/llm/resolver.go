@@ -568,6 +568,12 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	if copilotAuth && entry.Protocol == "" {
 		protocol = copilot.ProtocolForModel(model)
 	}
+	// Bedrock signs with AWS credentials and never mounts the Copilot
+	// middleware, so allowing it would silently send a Copilot configuration
+	// to AWS.
+	if copilotAuth && protocol == ProtocolAnthropicBedrock {
+		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q does not support protocol %q", cfg.Provider, protocol)
+	}
 
 	if protocol == ProtocolAnthropic {
 		var err error

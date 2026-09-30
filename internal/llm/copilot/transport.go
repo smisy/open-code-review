@@ -188,9 +188,12 @@ func ListModels(ctx context.Context, src *TokenSource) ([]Model, error) {
 		Data []struct {
 			ID                 string   `json:"id"`
 			Vendor             string   `json:"vendor"`
-			ModelPickerEnabled *bool    `json:"model_picker_enabled"`
+			ModelPickerEnabled bool     `json:"model_picker_enabled"`
 			SupportedEndpoints []string `json:"supported_endpoints"`
-			Capabilities       struct {
+			Policy             struct {
+				State string `json:"state"`
+			} `json:"policy"`
+			Capabilities struct {
 				Type     string `json:"type"`
 				Supports struct {
 					ToolCalls bool `json:"tool_calls"`
@@ -203,7 +206,10 @@ func ListModels(ctx context.Context, src *TokenSource) ([]Model, error) {
 	}
 	var out []Model
 	for _, m := range body.Data {
-		if m.Capabilities.Type != "chat" || (m.ModelPickerEnabled != nil && !*m.ModelPickerEnabled) {
+		// Same visibility rule as the Copilot model picker: hidden entries and
+		// ones the account's policy disables or has not enabled are unusable.
+		state := strings.ToLower(m.Policy.State)
+		if m.Capabilities.Type != "chat" || !m.ModelPickerEnabled || state == "disabled" || state == "unconfigured" {
 			continue
 		}
 		out = append(out, Model{

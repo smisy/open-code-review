@@ -203,3 +203,12 @@ func TestResolveCopilotCredentialConfigErrors(t *testing.T) {
 		t.Fatal("want api_key_cmd failure")
 	}
 }
+
+func TestResolveCopilotRejectsBedrock(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	t.Setenv(copilot.EnvToken, "gho_env")
+	_, err := ResolveEndpoint(writeConfig(t, copilotConfig("claude-sonnet-5", map[string]any{"protocol": "anthropic-bedrock"})))
+	if err == nil || !strings.Contains(err.Error(), "does not support protocol") {
+		t.Fatalf("err = %v", err)
+	}
+}

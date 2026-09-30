@@ -272,3 +272,46 @@ func TestCheckAPIKeyRequirementAllowsCopilot(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDefaultCopilotModelUsesCatalog(t *testing.T) {
+	stubCopilot(t, nil)
+	tests := []struct {
+		name   string
+		models []copilot.Model
+		want   string
+		errSub string
+	}{
+		{"preferred", []copilot.Model{{ID: "gpt-5-mini", ToolCalls: true}, {ID: "claude-sonnet-5", ToolCalls: true}}, "claude-sonnet-5", ""},
+		{"first tool-capable", []copilot.Model{{ID: "claude-sonnet-5"}, {ID: "gpt-5-mini", ToolCalls: true}, {ID: "gemini-3.8-flash", ToolCalls: true}}, "gpt-5-mini", ""},
+		{"none usable", []copilot.Model{{ID: "claude-sonnet-5"}}, "", "no enabled chat model"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			copilotListModels = func(context.Context, string) ([]copilot.Model, error) { return tt.models, nil }
+			got, err := defaultCopilotModel(context.Background(), "gho")
+			if tt.errSub != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.errSub) {
+					t.Fatalf("err = %v", err)
+				}
+				return
+			}
+			if err != nil || got != tt.want {
+				t.Fatalf("got %q err %v", got, err)
+			}
+		})
+	}
+}
+
+func TestCopilotLoginFailsWhenNoModelCanBeSelected(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	stubCopilot(t, nil)
+	copilotListModels = func(context.Context, string) ([]copilot.Model, error) { return nil, errors.New("catalog down") }
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	err := runCopilotLogin(context.Background(), &bytes.Buffer{}, cfgPath)
+	if err == nil || !strings.Contains(err.Error(), "catalog down") || !strings.Contains(err.Error(), "ocr copilot models") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, statErr := os.Stat(cfgPath); !os.IsNotExist(statErr) {
+		t.Fatal("config written without a usable model")
+	}
+}

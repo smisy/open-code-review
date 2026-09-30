@@ -221,7 +221,10 @@ func TestListModels(t *testing.T) {
 			{"id":"claude-sonnet-5","vendor":"Anthropic","model_picker_enabled":true,"supported_endpoints":["/v1/messages"],"capabilities":{"type":"chat","supports":{"tool_calls":true}}},
 			{"id":"hidden","model_picker_enabled":false,"capabilities":{"type":"chat"}},
 			{"id":"text-embedding-3-small","capabilities":{"type":"embeddings"}},
-			{"id":"gpt-5-mini","capabilities":{"type":"chat"}}
+			{"id":"no-picker-flag","capabilities":{"type":"chat"}},
+			{"id":"policy-off","model_picker_enabled":true,"policy":{"state":"Disabled"},"capabilities":{"type":"chat"}},
+			{"id":"policy-unset","model_picker_enabled":true,"policy":{"state":"unconfigured"},"capabilities":{"type":"chat"}},
+			{"id":"gpt-5-mini","model_picker_enabled":true,"policy":{"state":"enabled"},"capabilities":{"type":"chat"}}
 		]}`)
 	}))
 	defer srv.Close()

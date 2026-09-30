@@ -152,8 +152,8 @@ needed. The GitHub token is taken from `providers.github-copilot.api_key`,
 then `api_key_cmd`, then `COPILOT_GITHUB_TOKEN`, then the `ocr copilot login`
 credential in `~/.opencodereview/github-copilot.json`.
 
-The protocol follows the model family: Claude models use `anthropic`, Gemini
-and GPT-4 models use `openai`, and other models use `openai-responses`. Set
+The protocol follows the model family: Claude models use `anthropic`, Gemini,
+GPT-3 and GPT-4 models use `openai`, and other models use `openai-responses`. Set
 `providers.github-copilot.protocol` to override it. Any model your plan offers
 is accepted, whether or not it is in the preset list.
 

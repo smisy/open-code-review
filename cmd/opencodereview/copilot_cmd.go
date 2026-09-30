@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -118,12 +119,12 @@ func runCopilotLogin(ctx context.Context, out io.Writer, cfgPath string) error {
 	}
 	path, _ := copilot.CredentialsPath()
 	fmt.Fprintf(out, "Signed in. Credential saved to %s\n", path)
-	return selectCopilotProvider(out, cfgPath)
+	return selectCopilotProvider(ctx, out, cfgPath, token)
 }
 
 // selectCopilotProvider makes github-copilot the active provider unless the
 // user already configured a different one, which a login must not override.
-func selectCopilotProvider(out io.Writer, cfgPath string) error {
+func selectCopilotProvider(ctx context.Context, out io.Writer, cfgPath, githubToken string) error {
 	cfg, err := loadOrCreateConfig(cfgPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -138,7 +139,11 @@ func selectCopilotProvider(out io.Writer, cfgPath string) error {
 	// lets 'ocr config set provider github-copilot' work later on its own,
 	// since that command clears the top-level model.
 	if entry.Model == "" && (keepOther || cfg.Model == "") {
-		entry.Model = "claude-sonnet-5"
+		model, err := defaultCopilotModel(ctx, githubToken)
+		if err != nil {
+			return fmt.Errorf("signed in, but no model could be selected: %w; pick one from 'ocr copilot models' with 'ocr config set model <id>'", err)
+		}
+		entry.Model = model
 	}
 	cfg.Providers[copilotProviderName] = entry
 	if !keepOther {
@@ -157,6 +162,33 @@ func selectCopilotProvider(out io.Writer, cfgPath string) error {
 	}
 	fmt.Fprintf(out, "Provider set to %s (model %s). Change the model with: ocr config set model <id>\n", copilotProviderName, model)
 	return nil
+}
+
+// preferredCopilotModel is chosen when the account offers it; otherwise the
+// first tool-capable model the catalog lists, since reviews need tool calls.
+const preferredCopilotModel = "claude-sonnet-5"
+
+func defaultCopilotModel(ctx context.Context, githubToken string) (string, error) {
+	models, err := copilotListModels(ctx, githubToken)
+	if err != nil {
+		return "", err
+	}
+	first := ""
+	for _, m := range models {
+		if !m.ToolCalls {
+			continue
+		}
+		if m.ID == preferredCopilotModel {
+			return m.ID, nil
+		}
+		if first == "" {
+			first = m.ID
+		}
+	}
+	if first == "" {
+		return "", errors.New("this account has no enabled chat model with tool calling")
+	}
+	return first, nil
 }
 
 func runCopilotLogout(out io.Writer) error {
