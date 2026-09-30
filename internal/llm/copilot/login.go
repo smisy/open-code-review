@@ -55,7 +55,11 @@ func RequestDeviceCode(ctx context.Context) (DeviceCode, error) {
 // PollAccessToken waits until the user approves dc and returns the GitHub
 // OAuth token.
 func PollAccessToken(ctx context.Context, dc DeviceCode) (string, error) {
-	interval := time.Duration(max(dc.Interval, 1)) * time.Second
+	// RFC 8628: five seconds when the server does not name an interval.
+	interval := 5 * time.Second
+	if dc.Interval > 0 {
+		interval = time.Duration(dc.Interval) * time.Second
+	}
 	deadline := now().Add(time.Duration(dc.ExpiresIn) * time.Second)
 	form := url.Values{
 		"client_id":   {ClientID},
@@ -63,8 +67,11 @@ func PollAccessToken(ctx context.Context, dc DeviceCode) (string, error) {
 		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
 	}
 	for now().Before(deadline) {
-		if err := sleep(ctx, interval); err != nil {
+		if err := sleep(ctx, min(interval, deadline.Sub(now()))); err != nil {
 			return "", err
+		}
+		if !now().Before(deadline) {
+			break
 		}
 		var res struct {
 			AccessToken string `json:"access_token"`

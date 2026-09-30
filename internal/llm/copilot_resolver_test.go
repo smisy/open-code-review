@@ -212,3 +212,12 @@ func TestResolveCopilotRejectsBedrock(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestResolveCopilotRejectsAuthHeader(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	t.Setenv(copilot.EnvToken, "gho_env")
+	_, err := ResolveEndpoint(writeConfig(t, copilotConfig("claude-sonnet-5", map[string]any{"auth_header": "x-custom-auth"})))
+	if err == nil || !strings.Contains(err.Error(), "does not support auth_header") {
+		t.Fatalf("err = %v", err)
+	}
+}

@@ -568,6 +568,12 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	if copilotAuth && entry.Protocol == "" {
 		protocol = copilot.ProtocolForModel(model)
 	}
+	// The Anthropic client would put the GitHub token in a custom auth header,
+	// which the Copilot middleware does not strip, so the long-lived token
+	// would travel next to the exchanged one.
+	if copilotAuth && entry.AuthHeader != "" {
+		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q does not support auth_header; it authenticates with exchanged Copilot tokens", cfg.Provider)
+	}
 	// Bedrock signs with AWS credentials and never mounts the Copilot
 	// middleware, so allowing it would silently send a Copilot configuration
 	// to AWS.

@@ -255,3 +255,36 @@ func TestSaveGitHubTokenUnwritableDir(t *testing.T) {
 		t.Fatal("want error when the config dir is a file")
 	}
 }
+
+func TestPollAccessTokenDefaultsAndExpiry(t *testing.T) {
+	start := time.Unix(1_800_000_000, 0)
+	clock := setNow(t, start)
+	var waits []time.Duration
+	old := sleep
+	sleep = func(ctx context.Context, d time.Duration) error {
+		waits = append(waits, d)
+		*clock = clock.Add(d)
+		return nil
+	}
+	t.Cleanup(func() { sleep = old })
+
+	fakeDeviceFlow(t, validDeviceCode, `{"access_token":"gho"}`)
+	if _, err := PollAccessToken(context.Background(), DeviceCode{DeviceCode: "dc", ExpiresIn: 60}); err != nil {
+		t.Fatal(err)
+	}
+	if len(waits) != 1 || waits[0] != 5*time.Second {
+		t.Fatalf("waits = %v, want the RFC 8628 default of 5s", waits)
+	}
+
+	// An interval past the code's lifetime must not produce a poll after expiry;
+	// the fake server fails the test on any unexpected poll.
+	waits = nil
+	fakeDeviceFlow(t, validDeviceCode)
+	_, err := PollAccessToken(context.Background(), DeviceCode{DeviceCode: "dc", ExpiresIn: 3, Interval: 10})
+	if err == nil || !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(waits) != 1 || waits[0] != 3*time.Second {
+		t.Fatalf("waits = %v, want one sleep capped at the 3s lifetime", waits)
+	}
+}
