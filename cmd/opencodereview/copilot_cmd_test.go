@@ -167,7 +167,7 @@ func TestCopilotStatusAndModels(t *testing.T) {
 	t.Setenv(copilot.EnvToken, "")
 	stubCopilot(t, nil)
 
-	if err := runCopilotStatus(context.Background(), &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "not signed in") {
+	if err := runCopilotStatus(context.Background(), &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "ocr copilot login") {
 		t.Fatalf("err = %v", err)
 	}
 	if err := runCopilotModels(context.Background(), &bytes.Buffer{}); err == nil {
@@ -205,6 +205,33 @@ func TestCopilotStatusAndModels(t *testing.T) {
 	}
 	if err := runCopilotModels(context.Background(), &bytes.Buffer{}); err == nil {
 		t.Error("models: want error")
+	}
+}
+
+func TestCopilotStatusReportsConfiguredCredential(t *testing.T) {
+	home := t.TempDir()
+	setTestHome(t, home)
+	t.Setenv(copilot.EnvToken, "gho_env")
+	stubCopilot(t, nil)
+	if err := copilot.SaveGitHubToken("gho_stored"); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(home, ".opencodereview")
+	cfg := `{"provider":"github-copilot","providers":{"github-copilot":{"api_key":"gho_config"}}}`
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var checked string
+	copilotCheckToken = func(_ context.Context, token string) (string, error) {
+		checked = token
+		return copilot.DefaultBaseURL, nil
+	}
+	var out bytes.Buffer
+	if err := runCopilotStatus(context.Background(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if checked != "gho_config" || !strings.Contains(out.String(), "providers.github-copilot.api_key") {
+		t.Fatalf("checked %q, output:\n%s", checked, out.String())
 	}
 }
 

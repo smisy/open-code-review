@@ -46,6 +46,7 @@ environment variable.
 |---|---|---|---|
 | `anthropic` | anthropic | `https://api.anthropic.com` | `ANTHROPIC_API_KEY` |
 | `bedrock` | anthropic-bedrock | derived from `aws_region` | — (AWS credential chain) |
+| `github-copilot` | by model family | from the Copilot token | `COPILOT_GITHUB_TOKEN` (GitHub token; or `ocr copilot login`) |
 | `openai` | openai | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
 | `openai-responses` | openai-responses | `https://api.openai.com/v1` | `OPENAI_RESPONSES_API_KEY` |
 | `openrouter` | openai | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
@@ -133,6 +134,28 @@ Bedrock is **not** available through `llm.protocol` or `OCR_LLM_PROTOCOL`. That
 block describes one URL and one token, has nowhere to put a region or a profile,
 and bedrock uses neither value it does carry, so the combination is rejected
 rather than accepted and ignored.
+
+### GitHub Copilot
+
+`github-copilot` runs reviews on a GitHub Copilot subscription instead of an
+API key. Sign in once with the GitHub device flow:
+
+```bash
+ocr copilot login     # stores the GitHub token and selects the provider
+ocr copilot models    # models your plan allows, and the protocol each uses
+ocr copilot status    # verifies the credential
+```
+
+The stored GitHub token is exchanged for short-lived Copilot API tokens during
+the run, and requests go to the API host named in that token, so no `url` is
+needed. The GitHub token is taken from `providers.github-copilot.api_key`,
+then `api_key_cmd`, then `COPILOT_GITHUB_TOKEN`, then the `ocr copilot login`
+credential in `~/.opencodereview/github-copilot.json`.
+
+The protocol follows the model family: Claude models use `anthropic`, Gemini
+and GPT-4 models use `openai`, and other models use `openai-responses`. Set
+`providers.github-copilot.protocol` to override it. Any model your plan offers
+is accepted, whether or not it is in the preset list.
 
 ### Custom providers
 

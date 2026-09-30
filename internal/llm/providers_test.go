@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/alibaba/open-code-review/internal/llm/copilot"
 )
 
 func TestLookupProvider_KnownProviders(t *testing.T) {
@@ -138,6 +140,55 @@ func TestListProviders_ReturnsSortedProviders(t *testing.T) {
 	}
 	if !sort.StringsAreSorted(names) {
 		t.Errorf("providers are not sorted: %v", names)
+	}
+}
+
+func TestLookupProvider_GithubCopilotDetails(t *testing.T) {
+	p, ok := LookupProvider("github-copilot")
+	if !ok {
+		t.Fatal("github-copilot not found")
+	}
+	if p.Protocol != ProtocolOpenAIChatCompletions {
+		t.Errorf("Protocol = %q, want %q", p.Protocol, ProtocolOpenAIChatCompletions)
+	}
+	if p.BaseURL != "https://api.individual.githubcopilot.com" {
+		t.Errorf("BaseURL = %q", p.BaseURL)
+	}
+	if p.EnvVar != "COPILOT_GITHUB_TOKEN" {
+		t.Errorf("EnvVar = %q, want COPILOT_GITHUB_TOKEN", p.EnvVar)
+	}
+	if !p.CopilotAuth {
+		t.Error("CopilotAuth = false, want true")
+	}
+	wantModels := []string{"claude-sonnet-5", "claude-opus-5", "claude-haiku-4.5", "gpt-5.5", "gpt-5-mini", "gemini-3.8-flash"}
+	if strings.Join(p.Models, ",") != strings.Join(wantModels, ",") {
+		t.Errorf("Models = %v, want %v", p.Models, wantModels)
+	}
+}
+
+// TestCopilotPresetModelsRouteToSupportedProtocol guards the protocol each
+// preset model resolves to. Copilot serves the newer GPT models only over the
+// Responses API and Gemini only over Chat Completions, so a routing change that
+// moved either would fail every request for that model.
+func TestCopilotPresetModelsRouteToSupportedProtocol(t *testing.T) {
+	want := map[string]string{
+		"claude-sonnet-5":  ProtocolAnthropic,
+		"claude-opus-5":    ProtocolAnthropic,
+		"claude-haiku-4.5": ProtocolAnthropic,
+		"gpt-5.5":          ProtocolOpenAIResponses,
+		"gpt-5-mini":       ProtocolOpenAIResponses,
+		"gemini-3.8-flash": ProtocolOpenAIChatCompletions,
+	}
+	p, _ := LookupProvider("github-copilot")
+	for _, model := range p.Models {
+		w, ok := want[model]
+		if !ok {
+			t.Errorf("preset model %q has no expected protocol; add it here", model)
+			continue
+		}
+		if got := copilot.ProtocolForModel(model); got != w {
+			t.Errorf("ProtocolForModel(%q) = %q, want %q", model, got, w)
+		}
 	}
 }
 

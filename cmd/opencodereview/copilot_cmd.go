@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/alibaba/open-code-review/internal/llm"
 	"github.com/alibaba/open-code-review/internal/llm/copilot"
 	"github.com/spf13/cobra"
 )
@@ -168,21 +168,14 @@ func runCopilotLogout(out io.Writer) error {
 	return nil
 }
 
-// copilotGitHubToken mirrors the resolver's precedence for the commands that
-// run outside a review: environment first, then the stored login.
-func copilotGitHubToken() (token, source string, err error) {
-	if v := strings.TrimSpace(os.Getenv(copilot.EnvToken)); v != "" {
-		return v, "$" + copilot.EnvToken, nil
-	}
-	token, err = copilot.LoadGitHubToken()
+// copilotGitHubToken resolves the credential a review would use, so status and
+// models report on the same token.
+var copilotGitHubToken = func() (token, source string, err error) {
+	cfgPath, err := defaultConfigPath()
 	if err != nil {
 		return "", "", err
 	}
-	if token == "" {
-		return "", "", errors.New("not signed in; run 'ocr copilot login'")
-	}
-	path, _ := copilot.CredentialsPath()
-	return token, path, nil
+	return llm.ResolveCopilotCredential(cfgPath)
 }
 
 func runCopilotStatus(ctx context.Context, out io.Writer) error {

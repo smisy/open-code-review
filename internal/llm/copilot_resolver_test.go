@@ -143,3 +143,63 @@ func TestNewLLMClientMountsCopilotAuth(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveCopilotCredentialMatchesResolver(t *testing.T) {
+	home := t.TempDir()
+	setTestHome(t, home)
+	t.Setenv(copilot.EnvToken, "")
+
+	missing := filepath.Join(home, "absent.json")
+	if _, _, err := ResolveCopilotCredential(missing); err == nil || !strings.Contains(err.Error(), "ocr copilot login") {
+		t.Fatalf("no credential: err = %v", err)
+	}
+	if err := copilot.SaveGitHubToken("gho_stored"); err != nil {
+		t.Fatal(err)
+	}
+	if tok, src, err := ResolveCopilotCredential(missing); err != nil || tok != "gho_stored" || !strings.HasSuffix(src, "github-copilot.json") {
+		t.Fatalf("stored: tok=%q src=%q err=%v", tok, src, err)
+	}
+
+	tests := []struct {
+		name   string
+		entry  map[string]any
+		env    string
+		token  string
+		source string
+	}{
+		{"env over stored", map[string]any{}, "gho_env", "gho_env", "$" + copilot.EnvToken},
+		{"api_key_cmd over env", map[string]any{"api_key_cmd": "echo gho_cmd"}, "gho_env", "gho_cmd", "providers.github-copilot.api_key_cmd"},
+		{"api_key over all", map[string]any{"api_key": "gho_key", "api_key_cmd": "echo gho_cmd"}, "gho_env", "gho_key", "providers.github-copilot.api_key"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(copilot.EnvToken, tt.env)
+			path := writeConfig(t, copilotConfig("claude-sonnet-5", tt.entry))
+			tok, src, err := ResolveCopilotCredential(path)
+			if err != nil || tok != tt.token || src != tt.source {
+				t.Fatalf("tok=%q src=%q err=%v", tok, src, err)
+			}
+			ep, err := ResolveEndpoint(path)
+			if err != nil || ep.Token != tok {
+				t.Fatalf("resolver used %q, credential helper %q (err=%v)", ep.Token, tok, err)
+			}
+		})
+	}
+}
+
+func TestResolveCopilotCredentialConfigErrors(t *testing.T) {
+	bad := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(bad, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ResolveCopilotCredential(bad); err == nil || !strings.Contains(err.Error(), "parse config") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, _, err := ResolveCopilotCredential(t.TempDir()); err == nil {
+		t.Fatal("want read error for a directory")
+	}
+	failing := writeConfig(t, copilotConfig("claude-sonnet-5", map[string]any{"api_key_cmd": "exit 3"}))
+	if _, err := ResolveEndpoint(failing); err == nil {
+		t.Fatal("want api_key_cmd failure")
+	}
+}
