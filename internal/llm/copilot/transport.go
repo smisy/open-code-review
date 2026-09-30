@@ -70,9 +70,10 @@ func (a *Auth) prepare(req *http.Request) error {
 	return nil
 }
 
-// initiator reports "agent" for turns that only carry tool results back to
-// the model, and "user" otherwise, the same split the Copilot editor clients
-// make.
+// initiator reports "agent" for turns that return tool results to the model,
+// even when a text block rides along in the same message, and "user"
+// otherwise. That is the split the Copilot editor clients make, so billing
+// matches theirs: a tool round-trip is not a new user request.
 func initiator(req *http.Request) string {
 	body := peekBody(req)
 	if len(body) == 0 {

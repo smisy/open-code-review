@@ -141,7 +141,7 @@ rather than accepted and ignored.
 API key. Sign in once with the GitHub device flow:
 
 ```bash
-ocr copilot login     # stores the GitHub token and selects the provider
+ocr copilot login     # stores the GitHub token; selects the provider unless another one is active
 ocr copilot models    # models your plan allows, and the protocol each uses
 ocr copilot status    # verifies the credential
 ```

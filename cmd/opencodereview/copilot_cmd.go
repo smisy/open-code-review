@@ -31,7 +31,7 @@ token in ~/.opencodereview/github-copilot.json. The github-copilot provider
 exchanges it for short-lived Copilot API tokens during each run. The
 COPILOT_GITHUB_TOKEN environment variable, or providers.github-copilot.api_key,
 takes precedence over the stored login.`,
-	Example: `  ocr copilot login              Sign in and select the github-copilot provider
+	Example: `  ocr copilot login              Sign in; selects github-copilot unless another provider is active
   ocr copilot models             List the models your Copilot plan allows
   ocr copilot status             Check that the credential works
   ocr copilot logout             Remove the stored login`,
@@ -119,7 +119,16 @@ func runCopilotLogin(ctx context.Context, out io.Writer, cfgPath string) error {
 	}
 	path, _ := copilot.CredentialsPath()
 	fmt.Fprintf(out, "Signed in. Credential saved to %s\n", path)
-	return selectCopilotProvider(ctx, out, cfgPath, token)
+	// Reviews use the highest-precedence credential, which may belong to a
+	// different account than this login; the model has to come from its catalog.
+	effective, source, err := llm.ResolveCopilotCredential(cfgPath)
+	if err != nil {
+		return err
+	}
+	if source != path {
+		fmt.Fprintf(out, "Note: reviews use the credential from %s, which takes precedence over this login.\n", source)
+	}
+	return selectCopilotProvider(ctx, out, cfgPath, effective)
 }
 
 // selectCopilotProvider makes github-copilot the active provider unless the

@@ -144,7 +144,10 @@ func TestCopilotLoginBadConfig(t *testing.T) {
 	if err := os.WriteFile(cfgPath, []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := runCopilotLogin(context.Background(), &bytes.Buffer{}, cfgPath); err == nil || !strings.Contains(err.Error(), "load config") {
+	if err := runCopilotLogin(context.Background(), &bytes.Buffer{}, cfgPath); err == nil || !strings.Contains(err.Error(), "parse config") {
+		t.Fatalf("err = %v", err)
+	}
+	if err := selectCopilotProvider(context.Background(), &bytes.Buffer{}, cfgPath, "gho"); err == nil || !strings.Contains(err.Error(), "load config") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -313,5 +316,40 @@ func TestCopilotLoginFailsWhenNoModelCanBeSelected(t *testing.T) {
 	}
 	if _, statErr := os.Stat(cfgPath); !os.IsNotExist(statErr) {
 		t.Fatal("config written without a usable model")
+	}
+}
+
+func TestCopilotLoginPicksModelForEffectiveCredential(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	stubCopilot(t, nil)
+	t.Setenv(copilot.EnvToken, "gho_env")
+	var catalogToken string
+	copilotListModels = func(_ context.Context, token string) ([]copilot.Model, error) {
+		catalogToken = token
+		return []copilot.Model{{ID: "gpt-5-mini", ToolCalls: true}}, nil
+	}
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	var out bytes.Buffer
+	if err := runCopilotLogin(context.Background(), &out, cfgPath); err != nil {
+		t.Fatal(err)
+	}
+	if catalogToken != "gho_env" {
+		t.Fatalf("catalog read with %q, want the effective credential gho_env", catalogToken)
+	}
+	if !strings.Contains(out.String(), "takes precedence over this login") || readTestConfig(t, cfgPath).Providers["github-copilot"].Model != "gpt-5-mini" {
+		t.Fatalf("output:\n%s", out.String())
+	}
+}
+
+func TestCopilotLoginEffectiveCredentialError(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	stubCopilot(t, nil)
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	cfg := `{"providers":{"github-copilot":{"api_key_cmd":"exit 3"}}}`
+	if err := os.WriteFile(cfgPath, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := runCopilotLogin(context.Background(), &bytes.Buffer{}, cfgPath); err == nil {
+		t.Fatal("want api_key_cmd failure")
 	}
 }
