@@ -153,6 +153,7 @@ export const PROVIDER_PRESETS: OcrProviderPreset[] = [
     "protocol": "openai",
     "baseUrl": "https://api.individual.githubcopilot.com",
     "envVar": "COPILOT_GITHUB_TOKEN",
+    "copilotAuth": true,
     "models": [
       "claude-sonnet-5",
       "claude-opus-5",

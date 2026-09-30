@@ -14,6 +14,7 @@ export interface OcrProviderPreset {
   authHeader?: string;
   envVar: string;
   ambientAuth?: boolean;
+  copilotAuth?: boolean;
   models: string[];
 }
 
@@ -31,6 +32,12 @@ export function usesAmbientAuth(preset: OcrProviderPreset, protocolOverride?: st
   const protocol = protocolOverride?.trim().toLowerCase();
   if (protocol) return protocol === 'anthropic-bedrock';
   return preset.protocol === 'anthropic-bedrock' || preset.ambientAuth === true;
+}
+
+// The Copilot preset takes its credential from 'ocr copilot login' (or
+// COPILOT_GITHUB_TOKEN), so it has no API key to collect.
+export function usesCopilotAuth(preset: OcrProviderPreset): boolean {
+  return preset.copilotAuth === true;
 }
 
 export function mergeModelLists(...lists: string[][]): string[] {

@@ -2,7 +2,7 @@
 // Copyright 2026 alibaba/open-code-review Contributors
 
 import { PROVIDER_PRESETS as generatedPresets } from '../providers.generated';
-import { isPresetProvider, lookupPreset, mergeModelLists, PROVIDER_PRESETS, usesAmbientAuth } from '../providers';
+import { isPresetProvider, lookupPreset, mergeModelLists, PROVIDER_PRESETS, usesAmbientAuth, usesCopilotAuth } from '../providers';
 import { buildOfficialSaveEntries, detectInitialTab, isConfigReady } from '../configUtils';
 import { OcrConfig } from '../types';
 
@@ -69,5 +69,12 @@ describe('generated provider presets', () => {
   it('keeps unknown providers outside the built-in preset path', () => {
     expect(lookupPreset('my-custom-provider')).toBeUndefined();
     expect(isPresetProvider('my-custom-provider')).toBe(false);
+  });
+});
+
+describe('usesCopilotAuth', () => {
+  it('marks only the github-copilot preset', () => {
+    expect(usesCopilotAuth(lookupPreset('github-copilot')!)).toBe(true);
+    expect(usesCopilotAuth(lookupPreset('openai')!)).toBe(false);
   });
 });
