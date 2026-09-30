@@ -148,6 +148,22 @@ export const PROVIDER_PRESETS: OcrProviderPreset[] = [
     ]
   },
   {
+    "name": "github-copilot",
+    "displayName": "GitHub Copilot (subscription)",
+    "protocol": "openai",
+    "baseUrl": "https://api.individual.githubcopilot.com",
+    "envVar": "COPILOT_GITHUB_TOKEN",
+    "copilotAuth": true,
+    "models": [
+      "claude-sonnet-5",
+      "claude-opus-5",
+      "claude-haiku-4.5",
+      "gpt-5.5",
+      "gpt-5-mini",
+      "gemini-3.8-flash"
+    ]
+  },
+  {
     "name": "hy-tokenplan",
     "displayName": "Tencent Hunyuan Token Plan API",
     "protocol": "openai",
