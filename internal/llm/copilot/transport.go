@@ -140,13 +140,20 @@ func peekBody(req *http.Request) []byte {
 	}
 	b, err := io.ReadAll(req.Body)
 	req.Body.Close()
-	req.Body = io.NopCloser(bytes.NewReader(b))
-	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(b)), nil }
 	if err != nil {
+		// Replay the failure instead of a clean truncated body, which would
+		// turn a client-side read fault into a malformed request.
+		req.Body = io.NopCloser(io.MultiReader(bytes.NewReader(b), failingReader{err}))
 		return nil
 	}
+	req.Body = io.NopCloser(bytes.NewReader(b))
+	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(b)), nil }
 	return b
 }
+
+type failingReader struct{ err error }
+
+func (r failingReader) Read([]byte) (int, error) { return 0, r.err }
 
 // Model is one entry of the account's live Copilot catalog.
 type Model struct {

@@ -91,8 +91,12 @@ func TestCopilotLoginKeepsOtherProviderAndModel(t *testing.T) {
 	if err := runCopilotLogin(context.Background(), &out, other); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `active provider is "anthropic"`) || readTestConfig(t, other).Provider != "anthropic" {
+	otherCfg := readTestConfig(t, other)
+	if !strings.Contains(out.String(), `active provider is "anthropic"`) || otherCfg.Provider != "anthropic" {
 		t.Fatalf("login overrode another provider:\n%s", out.String())
+	}
+	if otherCfg.Providers["github-copilot"].Model != "claude-sonnet-5" {
+		t.Fatalf("switching later would leave no model: %+v", otherCfg.Providers)
 	}
 
 	withModel := filepath.Join(dir, "model.json")

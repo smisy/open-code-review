@@ -195,9 +195,15 @@ func TestPeekBodyWithoutGetBody(t *testing.T) {
 	}
 
 	broken, _ := http.NewRequest(http.MethodPost, "https://x", nil)
-	broken.Body = io.NopCloser(errReader{})
+	broken.Body = io.NopCloser(io.MultiReader(strings.NewReader(`{"mess`), errReader{}))
 	if got := peekBody(broken); got != nil {
 		t.Fatalf("peekBody = %q", got)
+	}
+	if broken.GetBody != nil {
+		t.Fatal("GetBody installed for a body that failed to read")
+	}
+	if b, err := io.ReadAll(broken.Body); err == nil || string(b) != `{"mess` {
+		t.Fatalf("read failure not replayed: body=%q err=%v", b, err)
 	}
 }
 

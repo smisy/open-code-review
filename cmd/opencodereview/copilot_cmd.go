@@ -128,21 +128,28 @@ func selectCopilotProvider(out io.Writer, cfgPath string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if cfg.Provider != "" && cfg.Provider != copilotProviderName {
-		fmt.Fprintf(out, "Your active provider is %q. Switch with: ocr config set provider %s\n", cfg.Provider, copilotProviderName)
-		return nil
-	}
-	cfg.Provider = copilotProviderName
+	keepOther := cfg.Provider != "" && cfg.Provider != copilotProviderName
 	if cfg.Providers == nil {
 		cfg.Providers = map[string]ProviderEntry{}
 	}
 	entry := cfg.Providers[copilotProviderName]
-	if entry.Model == "" && cfg.Model == "" {
+	// The top-level model belongs to whichever provider is active, so it only
+	// counts when that provider is github-copilot. The entry model is what
+	// lets 'ocr config set provider github-copilot' work later on its own,
+	// since that command clears the top-level model.
+	if entry.Model == "" && (keepOther || cfg.Model == "") {
 		entry.Model = "claude-sonnet-5"
 	}
 	cfg.Providers[copilotProviderName] = entry
+	if !keepOther {
+		cfg.Provider = copilotProviderName
+	}
 	if err := saveConfig(cfgPath, cfg); err != nil {
 		return fmt.Errorf("save config: %w", err)
+	}
+	if keepOther {
+		fmt.Fprintf(out, "Your active provider is %q. Switch with: ocr config set provider %s (model %s)\n", cfg.Provider, copilotProviderName, entry.Model)
+		return nil
 	}
 	model := entry.Model
 	if model == "" {
