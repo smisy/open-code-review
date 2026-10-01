@@ -302,3 +302,22 @@ func TestReasoningOffSkipsCatalogOutsideMessages(t *testing.T) {
 		t.Fatalf("Messages request did not fetch the catalog for the output clamp")
 	}
 }
+
+func TestEffortMergesIntoCallerObjects(t *testing.T) {
+	srv, _ := catalogServer(t, http.StatusOK)
+	auth := &Auth{Source: primedSource("cop_tok", srv.URL), ReasoningEffort: "max"}
+	body := send(t, auth, "/v1/messages", `{"model":"claude-opus-5.5","max_tokens":1000,"output_config":{"format":{"type":"json"}}}`)
+	oc := body["output_config"].(map[string]any)
+	if oc["effort"] != "max" || oc["format"] == nil {
+		t.Errorf("output_config = %v, want effort merged next to format", oc)
+	}
+	body = send(t, auth, "/responses", `{"model":"gpt-5.5","input":[],"reasoning":{"summary":"auto"}}`)
+	r := body["reasoning"].(map[string]any)
+	if r["effort"] != "xhigh" || r["summary"] != "auto" {
+		t.Errorf("reasoning = %v, want effort merged next to summary", r)
+	}
+	body = send(t, auth, "/responses", `{"model":"gpt-5.5","input":[],"reasoning":"odd"}`)
+	if body["reasoning"] != "odd" {
+		t.Errorf("non-object reasoning rewritten to %v", body["reasoning"])
+	}
+}

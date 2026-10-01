@@ -152,18 +152,38 @@ func (a *Auth) applyReasoning(req *http.Request) error {
 		body[key] = encoded
 		changed = true
 	}
+	// setEffort adds effort inside an object such as output_config or
+	// reasoning, keeping sibling fields the caller set and any effort they
+	// chose themselves.
+	setEffort := func(key string) {
+		existing, exists := body[key]
+		if !exists {
+			set(key, map[string]string{"effort": effort})
+			return
+		}
+		var object map[string]json.RawMessage
+		if json.Unmarshal(existing, &object) != nil || object == nil {
+			return
+		}
+		if _, has := object["effort"]; has {
+			return
+		}
+		object["effort"], _ = json.Marshal(effort)
+		body[key], _ = json.Marshal(object)
+		changed = true
+	}
 	switch path := req.URL.Path; {
 	case strings.HasSuffix(path, "/v1/messages"):
 		if adaptive {
 			set("thinking", map[string]string{"type": "adaptive"})
 		}
 		if effort != "" {
-			set("output_config", map[string]string{"effort": effort})
+			setEffort("output_config")
 		}
 		changed = clampMaxTokens(body, caps.MaxNonStreamingOutput) || changed
 	case strings.HasSuffix(path, "/responses"):
 		if effort != "" {
-			set("reasoning", map[string]string{"effort": effort})
+			setEffort("reasoning")
 		}
 	case strings.HasSuffix(path, "/chat/completions"):
 		if effort != "" {
