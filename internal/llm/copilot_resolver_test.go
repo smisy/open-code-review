@@ -294,3 +294,19 @@ func TestReasoningEffortChecksRunBeforeApiKeyCmd(t *testing.T) {
 		t.Fatal("api_key_cmd ran before the reasoning effort was rejected")
 	}
 }
+
+func TestReasoningEffortRejectedBeforeLegacyAuthTokenCmd(t *testing.T) {
+	home := t.TempDir()
+	setTestHome(t, home)
+	sentinel := filepath.Join(home, "ran")
+	path := writeConfig(t, map[string]any{"llm": map[string]any{
+		"url": "https://llm.example/v1", "model": "m", "protocol": "openai",
+		"auth_token_cmd": "touch '" + sentinel + "'; echo tok",
+	}})
+	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{ReasoningEffort: "max"}); err == nil || !strings.Contains(err.Error(), "llm config block") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Fatal("auth_token_cmd ran before the override was rejected")
+	}
+}

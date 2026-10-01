@@ -413,7 +413,7 @@ func tryOCRConfig(path string, opts ResolveOptions) (ResolvedEndpoint, bool, err
 		return tryProviderConfig(cfg, opts.Model, opts.ReasoningEffort)
 	}
 
-	return tryLegacyLlmConfig(cfg, opts.Model)
+	return tryLegacyLlmConfig(cfg, opts.Model, opts.ReasoningEffort)
 }
 
 // tryProviderConfig resolves an endpoint from the provider-based configuration.
@@ -746,7 +746,7 @@ func ResolveCopilotCredential(configPath string) (token, source string, err erro
 }
 
 // tryLegacyLlmConfig resolves an endpoint from the legacy llm config block.
-func tryLegacyLlmConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, bool, error) {
+func tryLegacyLlmConfig(cfg configFile, modelOverride, effortOverride string) (ResolvedEndpoint, bool, error) {
 	model := cfg.Llm.Model
 	if modelOverride != "" {
 		model = modelOverride
@@ -769,6 +769,11 @@ func tryLegacyLlmConfig(cfg configFile, modelOverride string) (ResolvedEndpoint,
 	}
 	if cfg.Llm.URL == "" || model == "" || (token == "" && tokenCmd == "") {
 		return ResolvedEndpoint{}, false, nil
+	}
+	// The legacy block is never Copilot; reject an effort override before
+	// auth_token_cmd can run.
+	if strings.TrimSpace(effortOverride) != "" {
+		return ResolvedEndpoint{}, false, fmt.Errorf("--reasoning-effort is only supported by the github-copilot provider, not the llm config block")
 	}
 	// Static auth_token always wins; warn if a command is also set. The command
 	// itself runs only just before returning, after the validation below.

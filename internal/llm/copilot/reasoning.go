@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // EffortOff disables the reasoning parameters entirely.
@@ -65,6 +66,10 @@ var thinkingThreshold = slices.Index(effortRank, "low")
 // /models endpoint costs a few requests, not one per completion.
 const maxCatalogAttempts = 3
 
+// catalogFetchTimeout bounds one catalog fetch, token exchange included, so
+// requests waiting on the catalog lock are not held for long.
+const catalogFetchTimeout = 30 * time.Second
+
 // catalogCache holds the account's model capabilities, fetched once per run.
 type catalogCache struct {
 	mu       sync.Mutex
@@ -82,7 +87,10 @@ func (a *Auth) capabilities(req *http.Request, model string) (Model, bool) {
 	defer a.catalog.mu.Unlock()
 	if a.catalog.models == nil && a.catalog.attempts < maxCatalogAttempts {
 		a.catalog.attempts++
-		if models, err := ListModels(context.WithoutCancel(req.Context()), a.Source); err == nil {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(req.Context()), catalogFetchTimeout)
+		models, err := ListModels(ctx, a.Source)
+		cancel()
+		if err == nil {
 			a.catalog.models = make(map[string]Model, len(models))
 			for _, m := range models {
 				a.catalog.models[m.ID] = m
