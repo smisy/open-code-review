@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/alibaba/open-code-review/internal/config/template"
+	"github.com/alibaba/open-code-review/internal/llm/copilot"
 	"github.com/spf13/cobra"
 )
 
@@ -60,6 +61,12 @@ func addConcurrencyFlags(cmd *cobra.Command, concurrency, timeout, maxTools, max
 
 func addModelFlag(cmd *cobra.Command, target *string) {
 	cmd.Flags().StringVar(target, "model", "", "override LLM model for this run (e.g., claude-opus-4-6)")
+}
+
+func addReasoningEffortFlag(cmd *cobra.Command, target *string) {
+	levels := copilot.ReasoningEffortLevels()
+	cmd.Flags().StringVar(target, "reasoning-effort", "", "model reasoning effort for this run with the github-copilot provider: "+strings.Join(levels, " | ")+" (\"\" = configured or default "+copilot.DefaultReasoningEffort+")")
+	cmd.RegisterFlagCompletionFunc("reasoning-effort", completeEnum(levels...))
 }
 
 func addProviderFlag(cmd *cobra.Command, target *string) {
@@ -213,6 +220,7 @@ func registerReviewFlags(cmd *cobra.Command, opts *reviewOptions) {
 	addBackgroundFlags(cmd, &opts.background, &opts.backgroundFile)
 	addProviderFlag(cmd, &opts.provider)
 	addModelFlag(cmd, &opts.model)
+	addReasoningEffortFlag(cmd, &opts.reasoningEffort)
 	cmd.Flags().StringVar(&opts.effort, "effort", "", "review effort preset: low | medium | high (\"\" = configured or default medium)")
 	cmd.RegisterFlagCompletionFunc("effort", completeEnum(template.EffortNames()...))
 	cmd.Flags().BoolVar(&opts.noFilter, "no-filter", false, "keep all review comments without LLM post-filtering")
@@ -242,6 +250,7 @@ func registerScanFlags(cmd *cobra.Command, opts *scanOptions) {
 	cmd.Flags().StringVar(&opts.batch, "batch", "", "override BATCH_STRATEGY: none | by-language | by-directory")
 	addProviderFlag(cmd, &opts.provider)
 	addModelFlag(cmd, &opts.model)
+	addReasoningEffortFlag(cmd, &opts.reasoningEffort)
 	cmd.Flags().StringVar(&opts.resume, "resume", "", "resume from a previous scan session id")
 	cmd.RegisterFlagCompletionFunc("batch", completeEnum("none", "by-language", "by-directory"))
 }

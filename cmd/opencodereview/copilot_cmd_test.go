@@ -15,6 +15,7 @@ import (
 
 	"github.com/alibaba/open-code-review/internal/llm"
 	"github.com/alibaba/open-code-review/internal/llm/copilot"
+	"github.com/spf13/cobra"
 )
 
 // stubCopilot replaces every network call the copilot commands make.
@@ -351,5 +352,38 @@ func TestCopilotLoginEffectiveCredentialError(t *testing.T) {
 	}
 	if err := runCopilotLogin(context.Background(), &bytes.Buffer{}, cfgPath); err == nil {
 		t.Fatal("want api_key_cmd failure")
+	}
+}
+
+func TestConfigSetReasoningEffort(t *testing.T) {
+	cfg := &Config{}
+	if err := setProviderValue(cfg, "providers.github-copilot.reasoning_effort", " MAX "); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Providers["github-copilot"].ReasoningEffort; got != "max" {
+		t.Fatalf("reasoning_effort = %q", got)
+	}
+	if err := setProviderValue(cfg, "providers.github-copilot.reasoning_effort", "turbo"); err == nil || !strings.Contains(err.Error(), "invalid reasoning_effort") {
+		t.Fatalf("invalid value: err = %v", err)
+	}
+	if err := setProviderValue(cfg, "providers.github-copilot.reasoning_effort", ""); err != nil || cfg.Providers["github-copilot"].ReasoningEffort != "" {
+		t.Fatalf("clearing: err = %v, value %q", err, cfg.Providers["github-copilot"].ReasoningEffort)
+	}
+	if err := setProviderValue(cfg, "providers.anthropic.reasoning_effort", "high"); err == nil || !strings.Contains(err.Error(), "applies only to the github-copilot provider") {
+		t.Fatalf("other provider: err = %v", err)
+	}
+}
+
+func TestReasoningEffortFlagIsRegistered(t *testing.T) {
+	for _, cmd := range []*cobra.Command{reviewCmd, scanCmd} {
+		flag := cmd.Flags().Lookup("reasoning-effort")
+		if flag == nil {
+			t.Fatalf("%s has no --reasoning-effort flag", cmd.Name())
+		}
+		for _, level := range copilot.ReasoningEffortLevels() {
+			if !strings.Contains(flag.Usage, level) {
+				t.Errorf("%s --reasoning-effort help omits %q", cmd.Name(), level)
+			}
+		}
 	}
 }

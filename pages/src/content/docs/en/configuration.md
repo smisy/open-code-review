@@ -154,7 +154,23 @@ credential in `~/.opencodereview/github-copilot.json`.
 
 The protocol follows the model family: Claude models use `anthropic`, Gemini,
 GPT-3 and GPT-4 models use `openai`, and other models use `openai-responses`. Set
-`providers.github-copilot.protocol` to override it. Any model your plan offers
+`providers.github-copilot.protocol` to override it.
+
+Copilot serves Claude models with thinking off unless the request asks for
+it, so the provider sends a reasoning effort with every request: adaptive
+thinking plus `output_config.effort` for Claude, `reasoning.effort` for the
+Responses API, and `reasoning_effort` for Chat Completions. The effort is
+clamped to the levels the model advertises in the Copilot catalog, and a
+non-streaming Claude request is kept within the model's non-streaming output
+limit. The default is `high`; change it per provider or per run:
+
+```bash
+ocr config set providers.github-copilot.reasoning_effort max
+ocr review --reasoning-effort max
+```
+
+`off` sends no reasoning parameters. Values set through `extra_body` win over
+the provider's choice. Any model your plan offers
 is accepted, whether or not it is in the preset list.
 
 ### Custom providers

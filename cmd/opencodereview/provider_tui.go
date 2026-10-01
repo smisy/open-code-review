@@ -1301,6 +1301,8 @@ func cloneProviderEntry(v ProviderEntry) ProviderEntry {
 		RetryCodes: append([]int(nil), v.RetryCodes...),
 		AWSProfile: v.AWSProfile,
 		AWSRegion:  v.AWSRegion,
+
+		ReasoningEffort: v.ReasoningEffort,
 	}
 	out.unknownJSONFields = cloneUnknownJSONFields(v.unknownJSONFields)
 	if v.ExtraBody != nil {
