@@ -269,3 +269,22 @@ func TestCatalogFetchRetriesAfterFailure(t *testing.T) {
 		t.Errorf("catalog fetched %d times, want 2", calls)
 	}
 }
+
+func TestAdaptiveThinkingFollowsTheClampedEffort(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"data":[
+			{"id":"high-only","model_picker_enabled":true,"capabilities":{"type":"chat","supports":{"adaptive_thinking":true,"reasoning_effort":["high","max"]}}},
+			{"id":"no-levels","model_picker_enabled":true,"capabilities":{"type":"chat","supports":{"adaptive_thinking":true}}}
+		]}`)
+	}))
+	defer srv.Close()
+	low := &Auth{Source: primedSource("cop_tok", srv.URL), ReasoningEffort: "low"}
+	body := send(t, low, "/v1/messages", `{"model":"high-only","max_tokens":1000}`)
+	if _, ok := body["thinking"]; ok {
+		t.Error("thinking enabled although low clamps to no supported level")
+	}
+	body = send(t, low, "/v1/messages", `{"model":"no-levels","max_tokens":1000}`)
+	if _, ok := body["thinking"]; !ok {
+		t.Error("thinking dropped for a model that advertises no effort levels")
+	}
+}

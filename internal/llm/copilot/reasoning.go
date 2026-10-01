@@ -127,8 +127,14 @@ func (a *Auth) applyReasoning(req *http.Request) error {
 		effort = clampEffort(a.ReasoningEffort, caps.ReasoningEfforts)
 		// Anthropic rejects thinking together with a forced tool choice, the
 		// same guard the Anthropic client applies to extra_body.thinking.
+		// The threshold applies to the effort actually sent, so clamping a
+		// request below the model's levels never turns thinking on.
+		level := effort
+		if len(caps.ReasoningEfforts) == 0 {
+			level = a.ReasoningEffort
+		}
 		adaptive = caps.AdaptiveThinking &&
-			slices.Index(effortRank, a.ReasoningEffort) >= thinkingThreshold &&
+			slices.Index(effortRank, level) >= thinkingThreshold &&
 			!forcedToolChoice(body["tool_choice"])
 	}
 	changed := false
