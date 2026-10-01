@@ -15,6 +15,7 @@ import (
 
 	"github.com/alibaba/open-code-review/internal/config/template"
 	"github.com/alibaba/open-code-review/internal/llm"
+	"github.com/alibaba/open-code-review/internal/llm/copilot"
 	"github.com/spf13/cobra"
 )
 
@@ -313,6 +314,9 @@ type ProviderEntry struct {
 	ExtraBody    map[string]any    `json:"extra_body,omitempty"`
 	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
 	RetryCodes   []int             `json:"retry_codes,omitempty"`
+
+	// ReasoningEffort is read only by the github-copilot provider.
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 
 	// AWSProfile and AWSRegion pin the credentials and region for providers that
 	// authenticate from the AWS chain (bedrock). Both are optional — without
@@ -793,7 +797,7 @@ func setConfigValue(cfg *Config, key, value string) error {
 		}
 		cfg.Llm.RetryCodes = codes
 	default:
-		return fmt.Errorf("unknown config key: %s\nSupported keys: %s\nProvider fields: api_key, api_key_cmd, url, protocol, model, models, auth_header, timeout_sec, extra_body, extra_headers, retry_codes, aws_region, aws_profile\nProtocol values: anthropic, anthropic-bedrock, openai, openai-responses\nMCP server fields: type, command, args, env, url, headers, tools, setup", key, strings.Join(supportedConfigKeys, ", "))
+		return fmt.Errorf("unknown config key: %s\nSupported keys: %s\nProvider fields: api_key, api_key_cmd, url, protocol, model, models, auth_header, timeout_sec, extra_body, extra_headers, retry_codes, reasoning_effort, aws_region, aws_profile\nProtocol values: anthropic, anthropic-bedrock, openai, openai-responses\nMCP server fields: type, command, args, env, url, headers, tools, setup", key, strings.Join(supportedConfigKeys, ", "))
 	}
 	return nil
 }
@@ -862,6 +866,16 @@ func applyProviderField(providerName string, entry *ProviderEntry, field, key, v
 			fmt.Fprintf(os.Stderr, "[ocr] WARNING: %s\n", w)
 		}
 		entry.RetryCodes = codes
+	case "reasoning_effort":
+		effort := strings.ToLower(strings.TrimSpace(value))
+		preset, isPreset := llm.LookupProvider(providerName)
+		if !isPreset || !preset.CopilotAuth {
+			return fmt.Errorf("reasoning_effort applies only to the %s provider, not %q", copilotProviderName, providerName)
+		}
+		if effort != "" && !copilot.ValidReasoningEffort(effort) {
+			return fmt.Errorf("invalid reasoning_effort %q for %s; use one of %s, or an empty value to clear it", value, key, copilot.ReasoningEfforts())
+		}
+		entry.ReasoningEffort = effort
 	case "timeout_sec":
 		timeout, err := parseTimeoutSeconds(value)
 		if err != nil {
@@ -882,7 +896,7 @@ func applyProviderField(providerName string, entry *ProviderEntry, field, key, v
 			entry.AWSProfile = normalized
 		}
 	default:
-		return fmt.Errorf("unknown provider field %q: supported fields are api_key, api_key_cmd, url, protocol, model, models, auth_header, timeout_sec, extra_body, extra_headers, retry_codes, aws_region, aws_profile", field)
+		return fmt.Errorf("unknown provider field %q: supported fields are api_key, api_key_cmd, url, protocol, model, models, auth_header, timeout_sec, extra_body, extra_headers, retry_codes, reasoning_effort, aws_region, aws_profile", field)
 	}
 	return nil
 }

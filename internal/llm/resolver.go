@@ -85,6 +85,9 @@ const (
 type ResolveOptions struct {
 	Provider string
 	Model    string
+	// ReasoningEffort overrides the github-copilot provider's configured
+	// reasoning effort for this run. Other providers reject it.
+	ReasoningEffort string
 }
 
 // ResolveEndpoint resolves an endpoint without per-run overrides.
@@ -128,7 +131,7 @@ func ResolveEndpointWithOptions(configPath string, opts ResolveOptions) (Resolve
 			}
 			return ResolvedEndpoint{}, fmt.Errorf("resolve OCR config file: provider %q is not configured in %s section because the config file does not exist", opts.Provider, section)
 		}
-		return finalizeResolvedEndpoint("OCR config file", ep, env), nil
+		return requireEffortSupport(finalizeResolvedEndpoint("OCR config file", ep, env), opts)
 	}
 
 	strategies := []struct {
@@ -150,11 +153,20 @@ func ResolveEndpointWithOptions(configPath string, opts ResolveOptions) (Resolve
 		// transport supplies both. Everything else still needs all three.
 		complete := ep.Model != "" && (ep.AmbientAuth || (ep.URL != "" && ep.Token != ""))
 		if ok && complete {
-			return finalizeResolvedEndpoint(strategy.name, ep, env), nil
+			return requireEffortSupport(finalizeResolvedEndpoint(strategy.name, ep, env), opts)
 		}
 	}
 
 	return ResolvedEndpoint{}, fmt.Errorf("no valid LLM endpoint configured; one of OCR_LLM_URL/OCR_LLM_TOKEN/OCR_LLM_MODEL, ~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/ANTHROPIC_MODEL must be set")
+}
+
+// requireEffortSupport rejects a reasoning-effort override for a provider that
+// would silently ignore it.
+func requireEffortSupport(ep ResolvedEndpoint, opts ResolveOptions) (ResolvedEndpoint, error) {
+	if strings.TrimSpace(opts.ReasoningEffort) != "" && ep.Copilot == nil {
+		return ResolvedEndpoint{}, fmt.Errorf("--reasoning-effort is only supported by the github-copilot provider, not %q", ep.Source)
+	}
+	return ep, nil
 }
 
 // envOverrides holds the global OCR_LLM_* overrides that apply to whichever
@@ -357,6 +369,9 @@ type providerEntryConfig struct {
 	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
 	RetryCodes   []int             `json:"retry_codes,omitempty"`
 
+	// ReasoningEffort is read only by the github-copilot provider.
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+
 	// AWSProfile and AWSRegion apply to ambient-auth providers that sign with
 	// SigV4 (currently bedrock). Both are optional: without them the standard
 	// AWS chain decides, same as any other AWS tool. Setting them in config
@@ -395,14 +410,14 @@ func tryOCRConfig(path string, opts ResolveOptions) (ResolvedEndpoint, bool, err
 		cfg.Provider = opts.Provider
 	}
 	if cfg.Provider != "" {
-		return tryProviderConfig(cfg, opts.Model)
+		return tryProviderConfig(cfg, opts.Model, opts.ReasoningEffort)
 	}
 
 	return tryLegacyLlmConfig(cfg, opts.Model)
 }
 
 // tryProviderConfig resolves an endpoint from the provider-based configuration.
-func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, bool, error) {
+func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (ResolvedEndpoint, bool, error) {
 	preset, isPreset := LookupProvider(cfg.Provider)
 
 	var entry providerEntryConfig
@@ -462,6 +477,10 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	// Copilot resolves its credential late, through copilotCredential, which
 	// adds the stored login as a last source.
 	copilotAuth := isPreset && preset.CopilotAuth
+	// Reject an effort override for other providers before api_key_cmd can run.
+	if strings.TrimSpace(effortOverride) != "" && !copilotAuth {
+		return ResolvedEndpoint{}, false, fmt.Errorf("--reasoning-effort is only supported by the github-copilot provider, not %q", cfg.Provider)
+	}
 
 	var url, protocol, authHeader, model string
 	var extraBody map[string]any
@@ -627,12 +646,18 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	var copilotEndpoint *copilot.Auth
 	switch {
 	case copilotAuth:
+		// Validate the effort before copilotCredential, which may run
+		// api_key_cmd and prompt the user.
+		effort, err := copilotReasoningEffort(cfg.Provider, entry.ReasoningEffort, effortOverride)
+		if err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
 		token, _, err := copilotCredential(cfg.Provider, entry)
 		if err != nil {
 			return ResolvedEndpoint{}, false, err
 		}
 		apiKey = token
-		copilotEndpoint = &copilot.Auth{Source: copilot.NewTokenSource(apiKey), RewriteHost: entry.URL == ""}
+		copilotEndpoint = &copilot.Auth{Source: copilot.NewTokenSource(apiKey), RewriteHost: entry.URL == "", ReasoningEffort: effort}
 	case apiKey == "" && apiKeyCmd != "" && !ambientAuth:
 		resolved, err := resolveKeyCmd(apiKeyCmd, fmt.Sprintf("api_key_cmd for provider %q", cfg.Provider))
 		if err != nil {
@@ -684,6 +709,23 @@ func copilotCredential(provider string, entry providerEntryConfig) (token, sourc
 	}
 	path, _ := copilot.CredentialsPath()
 	return stored, path, nil
+}
+
+// copilotReasoningEffort picks the run override, then the configured value,
+// then the provider default.
+func copilotReasoningEffort(provider, configured, override string) (string, error) {
+	effort := strings.TrimSpace(override)
+	if effort == "" {
+		effort = strings.TrimSpace(configured)
+	}
+	if effort == "" {
+		return copilot.DefaultReasoningEffort, nil
+	}
+	effort = strings.ToLower(effort)
+	if !copilot.ValidReasoningEffort(effort) {
+		return "", fmt.Errorf("provider %q: invalid reasoning effort %q; use one of %s", provider, effort, copilot.ReasoningEfforts())
+	}
+	return effort, nil
 }
 
 // ResolveCopilotCredential resolves the github-copilot provider's GitHub token

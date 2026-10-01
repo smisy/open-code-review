@@ -20,6 +20,11 @@ type Auth struct {
 	// RewriteHost sends each request to the base URL named by the Copilot
 	// token. It is off when the user pinned a URL explicitly.
 	RewriteHost bool
+	// ReasoningEffort is the effort requested for every completion; empty or
+	// EffortOff sends none. See reasoning.go.
+	ReasoningEffort string
+
+	catalog catalogCache
 }
 
 // Middleware authenticates each HTTP attempt with a current Copilot token. Its
@@ -66,6 +71,9 @@ func (a *Auth) prepare(req *http.Request) error {
 	req.Header.Del("X-Api-Key")
 	req.Header.Set("Authorization", "Bearer "+token)
 	setIDEHeaders(req.Header)
+	if err := a.applyReasoning(req); err != nil {
+		return err
+	}
 	req.Header.Set("X-Initiator", initiator(req))
 	return nil
 }
@@ -162,6 +170,11 @@ type Model struct {
 	Vendor    string
 	Endpoints []string
 	ToolCalls bool
+	// AdaptiveThinking and ReasoningEfforts come from the catalog's
+	// capabilities.supports; MaxNonStreamingOutput from capabilities.limits.
+	AdaptiveThinking      bool
+	ReasoningEfforts      []string
+	MaxNonStreamingOutput int
 }
 
 // ListModels returns the chat models the account can pick.
@@ -197,8 +210,13 @@ func ListModels(ctx context.Context, src *TokenSource) ([]Model, error) {
 			Capabilities struct {
 				Type     string `json:"type"`
 				Supports struct {
-					ToolCalls bool `json:"tool_calls"`
+					ToolCalls        bool     `json:"tool_calls"`
+					AdaptiveThinking bool     `json:"adaptive_thinking"`
+					ReasoningEffort  []string `json:"reasoning_effort"`
 				} `json:"supports"`
+				Limits struct {
+					MaxNonStreamingOutputTokens int `json:"max_non_streaming_output_tokens"`
+				} `json:"limits"`
 			} `json:"capabilities"`
 		} `json:"data"`
 	}
@@ -214,10 +232,13 @@ func ListModels(ctx context.Context, src *TokenSource) ([]Model, error) {
 			continue
 		}
 		out = append(out, Model{
-			ID:        m.ID,
-			Vendor:    m.Vendor,
-			Endpoints: m.SupportedEndpoints,
-			ToolCalls: m.Capabilities.Supports.ToolCalls,
+			ID:                    m.ID,
+			Vendor:                m.Vendor,
+			Endpoints:             m.SupportedEndpoints,
+			ToolCalls:             m.Capabilities.Supports.ToolCalls,
+			AdaptiveThinking:      m.Capabilities.Supports.AdaptiveThinking,
+			ReasoningEfforts:      m.Capabilities.Supports.ReasoningEffort,
+			MaxNonStreamingOutput: m.Capabilities.Limits.MaxNonStreamingOutputTokens,
 		})
 	}
 	return out, nil
