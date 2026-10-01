@@ -221,3 +221,92 @@ func TestResolveCopilotRejectsAuthHeader(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestResolveCopilotReasoningEffort(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	t.Setenv(copilot.EnvToken, "gho_env")
+	resolve := func(entry map[string]any, override string) (ResolvedEndpoint, error) {
+		return ResolveEndpointWithOptions(writeConfig(t, copilotConfig("claude-opus-5.5", entry)), ResolveOptions{ReasoningEffort: override})
+	}
+	tests := []struct {
+		name     string
+		entry    map[string]any
+		override string
+		want     string
+	}{
+		{"default", map[string]any{}, "", copilot.DefaultReasoningEffort},
+		{"configured", map[string]any{"reasoning_effort": "xhigh"}, "", "xhigh"},
+		{"override wins", map[string]any{"reasoning_effort": "low"}, "max", "max"},
+		{"override is normalized", map[string]any{}, " MAX ", "max"},
+		{"off", map[string]any{"reasoning_effort": "off"}, "", copilot.EffortOff},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ep, err := resolve(tt.entry, tt.override)
+			if err != nil || ep.Copilot.ReasoningEffort != tt.want {
+				t.Fatalf("effort=%q err=%v, want %q", ep.Copilot.ReasoningEffort, err, tt.want)
+			}
+		})
+	}
+	if _, err := resolve(map[string]any{"reasoning_effort": "turbo"}, ""); err == nil || !strings.Contains(err.Error(), "invalid reasoning effort") {
+		t.Fatalf("configured invalid: err = %v", err)
+	}
+	if _, err := resolve(map[string]any{}, "ultra"); err == nil || !strings.Contains(err.Error(), "invalid reasoning effort") {
+		t.Fatalf("override invalid: err = %v", err)
+	}
+}
+
+func TestReasoningEffortOverrideRejectedForOtherProviders(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	path := writeConfig(t, map[string]any{
+		"provider":  "anthropic",
+		"model":     "claude-opus-5",
+		"providers": map[string]any{"anthropic": map[string]any{"api_key": "sk-test"}},
+	})
+	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{ReasoningEffort: "max"}); err == nil || !strings.Contains(err.Error(), "only supported by the github-copilot provider") {
+		t.Fatalf("config path: err = %v", err)
+	}
+	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{Provider: "anthropic", ReasoningEffort: "max"}); err == nil {
+		t.Fatal("explicit provider path: want error")
+	}
+	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{}); err != nil {
+		t.Fatalf("no override: %v", err)
+	}
+}
+
+func TestReasoningEffortChecksRunBeforeApiKeyCmd(t *testing.T) {
+	home := t.TempDir()
+	setTestHome(t, home)
+	sentinel := filepath.Join(home, "ran")
+	other := writeConfig(t, map[string]any{
+		"provider":  "anthropic",
+		"model":     "claude-opus-5",
+		"providers": map[string]any{"anthropic": map[string]any{"api_key_cmd": "touch '" + sentinel + "'; echo sk"}},
+	})
+	if _, err := ResolveEndpointWithOptions(other, ResolveOptions{ReasoningEffort: "max"}); err == nil {
+		t.Fatal("want error for a non-Copilot provider")
+	}
+	typo := writeConfig(t, copilotConfig("claude-opus-5.5", map[string]any{"api_key_cmd": "touch '" + sentinel + "'; echo gho", "reasoning_effort": "turbo"}))
+	if _, err := ResolveEndpoint(typo); err == nil {
+		t.Fatal("want error for an invalid effort")
+	}
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Fatal("api_key_cmd ran before the reasoning effort was rejected")
+	}
+}
+
+func TestReasoningEffortRejectedBeforeLegacyAuthTokenCmd(t *testing.T) {
+	home := t.TempDir()
+	setTestHome(t, home)
+	sentinel := filepath.Join(home, "ran")
+	path := writeConfig(t, map[string]any{"llm": map[string]any{
+		"url": "https://llm.example/v1", "model": "m", "protocol": "openai",
+		"auth_token_cmd": "touch '" + sentinel + "'; echo tok",
+	}})
+	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{ReasoningEffort: "max"}); err == nil || !strings.Contains(err.Error(), "llm config block") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
+		t.Fatal("auth_token_cmd ran before the override was rejected")
+	}
+}

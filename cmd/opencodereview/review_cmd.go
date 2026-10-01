@@ -42,6 +42,7 @@ type reviewOptions struct {
 	backgroundFile        string
 	provider              string
 	model                 string
+	reasoningEffort       string
 	concurrency           int
 	concurrentTaskTimeout int
 	maxTools              int
@@ -161,8 +162,9 @@ func executeReviewContext(ctx context.Context, opts reviewOptions) (retErr error
 	}
 
 	rt, err := loadLLMRuntime(cc.Template, opts.toolConfigPath, llm.ResolveOptions{
-		Provider: opts.provider,
-		Model:    opts.model,
+		Provider:        opts.provider,
+		Model:           opts.model,
+		ReasoningEffort: opts.reasoningEffort,
 	})
 	if err != nil {
 		return err

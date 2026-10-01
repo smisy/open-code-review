@@ -47,6 +47,7 @@ type scanOptions struct {
 	maxTokensBudget       int
 	provider              string
 	model                 string
+	reasoningEffort       string
 	resume                string
 }
 
@@ -167,8 +168,9 @@ func executeScan(opts scanOptions) (retErr error) {
 	}
 
 	rt, err := loadLLMRuntime(cc.Template, opts.toolConfigPath, llm.ResolveOptions{
-		Provider: opts.provider,
-		Model:    opts.model,
+		Provider:        opts.provider,
+		Model:           opts.model,
+		ReasoningEffort: opts.reasoningEffort,
 	})
 	if err != nil {
 		return err
