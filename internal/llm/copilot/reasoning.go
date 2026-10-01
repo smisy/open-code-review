@@ -106,6 +106,12 @@ func (a *Auth) capabilities(req *http.Request, model string) (Model, bool) {
 // non-streaming Messages request within the model's output limit. Fields the
 // caller already set (for example through extra_body) are left alone.
 func (a *Auth) applyReasoning(req *http.Request) error {
+	reasoning := a.ReasoningEffort != "" && a.ReasoningEffort != EffortOff
+	// With reasoning off only the Messages output clamp needs the catalog, so
+	// other endpoints skip the lookup entirely.
+	if !reasoning && !strings.HasSuffix(req.URL.Path, "/v1/messages") {
+		return nil
+	}
 	raw := peekBody(req)
 	if len(raw) == 0 {
 		return nil
@@ -123,7 +129,7 @@ func (a *Auth) applyReasoning(req *http.Request) error {
 		return nil
 	}
 	effort, adaptive := "", false
-	if a.ReasoningEffort != "" && a.ReasoningEffort != EffortOff {
+	if reasoning {
 		effort = clampEffort(a.ReasoningEffort, caps.ReasoningEfforts)
 		// Anthropic rejects thinking together with a forced tool choice, the
 		// same guard the Anthropic client applies to extra_body.thinking.

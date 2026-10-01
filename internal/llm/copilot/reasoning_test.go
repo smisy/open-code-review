@@ -288,3 +288,17 @@ func TestAdaptiveThinkingFollowsTheClampedEffort(t *testing.T) {
 		t.Error("thinking dropped for a model that advertises no effort levels")
 	}
 }
+
+func TestReasoningOffSkipsCatalogOutsideMessages(t *testing.T) {
+	srv, calls := catalogServer(t, http.StatusOK)
+	auth := &Auth{Source: primedSource("cop_tok", srv.URL), ReasoningEffort: EffortOff}
+	send(t, auth, "/responses", `{"model":"gpt-5.5","input":[]}`)
+	send(t, auth, "/chat/completions", `{"model":"gpt-5.5","messages":[]}`)
+	if calls.Load() != 0 {
+		t.Fatalf("catalog fetched %d times with reasoning off on non-Messages endpoints", calls.Load())
+	}
+	send(t, auth, "/v1/messages", `{"model":"claude-opus-5.5","max_tokens":20000}`)
+	if calls.Load() != 1 {
+		t.Fatalf("Messages request did not fetch the catalog for the output clamp")
+	}
+}
