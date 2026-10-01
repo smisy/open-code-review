@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/alibaba/open-code-review/internal/llm/copilot"
 )
 
 // ResolvedEndpoint holds the resolved LLM endpoint configuration.
@@ -45,6 +47,11 @@ type ResolvedEndpoint struct {
 	// providers. Empty means "let the AWS SDK decide".
 	AWSProfile string
 	AWSRegion  string
+
+	// Copilot is set for the GitHub Copilot provider. Token then holds the
+	// GitHub OAuth token, which the client exchanges per request rather than
+	// sending as is.
+	Copilot *copilot.Auth
 }
 
 // Environment variable names for OCR-specific configuration.
@@ -452,6 +459,10 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 			apiKey = v
 		}
 	}
+	// Copilot resolves its credential late, through copilotCredential, which
+	// adds the stored login as a last source.
+	copilotAuth := isPreset && preset.CopilotAuth
+
 	var url, protocol, authHeader, model string
 	var extraBody map[string]any
 
@@ -507,7 +518,7 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	// An ambient-auth provider is the exception — it has no key to configure,
 	// since credentials come from the environment's own chain and the request is
 	// signed rather than bearing a token.
-	if apiKey == "" && apiKeyCmd == "" && !ambientAuth {
+	if apiKey == "" && apiKeyCmd == "" && !ambientAuth && !copilotAuth {
 		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no api_key or api_key_cmd configured and no environment variable fallback found", cfg.Provider)
 	}
 
@@ -531,7 +542,9 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	// supported value, and the one to use when spend has to be attributed — can
 	// never appear in a list compiled upstream. The list stays a picker for
 	// `ocr config model`; it does not gate an override.
-	gateOverrideOnModelList := !ambientAuth
+	// The Copilot catalog is per account and changes without a release, so the
+	// preset list cannot gate an override either.
+	gateOverrideOnModelList := !ambientAuth && !copilotAuth
 
 	// Apply model override with validation.
 	if modelOverride != "" {
@@ -550,6 +563,22 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 
 	if model == "" {
 		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no model configured; run 'ocr config model' to select one or pass --model", cfg.Provider)
+	}
+
+	if copilotAuth && entry.Protocol == "" {
+		protocol = copilot.ProtocolForModel(model)
+	}
+	// The Anthropic client would put the GitHub token in a custom auth header,
+	// which the Copilot middleware does not strip, so the long-lived token
+	// would travel next to the exchanged one.
+	if copilotAuth && entry.AuthHeader != "" {
+		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q does not support auth_header; it authenticates with exchanged Copilot tokens", cfg.Provider)
+	}
+	// Bedrock signs with AWS credentials and never mounts the Copilot
+	// middleware, so allowing it would silently send a Copilot configuration
+	// to AWS.
+	if copilotAuth && protocol == ProtocolAnthropicBedrock {
+		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q does not support protocol %q", cfg.Provider, protocol)
 	}
 
 	if protocol == ProtocolAnthropic {
@@ -595,7 +624,16 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 	// signed, so the command's output would be discarded, and running it anyway
 	// means a real 1Password / Touch ID prompt for a value nothing consumes.
 	// For everyone else a failing command is a hard error.
-	if apiKey == "" && apiKeyCmd != "" && !ambientAuth {
+	var copilotEndpoint *copilot.Auth
+	switch {
+	case copilotAuth:
+		token, _, err := copilotCredential(cfg.Provider, entry)
+		if err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
+		apiKey = token
+		copilotEndpoint = &copilot.Auth{Source: copilot.NewTokenSource(apiKey), RewriteHost: entry.URL == ""}
+	case apiKey == "" && apiKeyCmd != "" && !ambientAuth:
 		resolved, err := resolveKeyCmd(apiKeyCmd, fmt.Sprintf("api_key_cmd for provider %q", cfg.Provider))
 		if err != nil {
 			return ResolvedEndpoint{}, false, err
@@ -618,7 +656,51 @@ func tryProviderConfig(cfg configFile, modelOverride string) (ResolvedEndpoint, 
 		AmbientAuth:  ambientAuth,
 		AWSProfile:   entry.AWSProfile,
 		AWSRegion:    entry.AWSRegion,
+		Copilot:      copilotEndpoint,
 	}, true, nil
+}
+
+// copilotCredential returns the GitHub token the github-copilot provider uses
+// and a label for where it came from. It is the single precedence both review
+// runs and the 'ocr copilot' commands follow: api_key, api_key_cmd,
+// COPILOT_GITHUB_TOKEN, then the 'ocr copilot login' credential.
+func copilotCredential(provider string, entry providerEntryConfig) (token, source string, err error) {
+	if strings.TrimSpace(entry.APIKey) != "" {
+		return entry.APIKey, fmt.Sprintf("providers.%s.api_key", provider), nil
+	}
+	if strings.TrimSpace(entry.APIKeyCmd) != "" {
+		token, err := resolveKeyCmd(entry.APIKeyCmd, fmt.Sprintf("api_key_cmd for provider %q", provider))
+		return token, fmt.Sprintf("providers.%s.api_key_cmd", provider), err
+	}
+	if v := strings.TrimSpace(os.Getenv(copilot.EnvToken)); v != "" {
+		return v, "$" + copilot.EnvToken, nil
+	}
+	stored, err := copilot.LoadGitHubToken()
+	if err != nil {
+		return "", "", fmt.Errorf("provider %q: read Copilot login: %w", provider, err)
+	}
+	if stored == "" {
+		return "", "", fmt.Errorf("provider %q has no GitHub credential; run 'ocr copilot login' or set $%s", provider, copilot.EnvToken)
+	}
+	path, _ := copilot.CredentialsPath()
+	return stored, path, nil
+}
+
+// ResolveCopilotCredential resolves the github-copilot provider's GitHub token
+// from the config at configPath, which may be absent.
+func ResolveCopilotCredential(configPath string) (token, source string, err error) {
+	const provider = "github-copilot"
+	var cfg configFile
+	data, err := os.ReadFile(configPath)
+	switch {
+	case err == nil:
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			return "", "", fmt.Errorf("parse config: %w", err)
+		}
+	case !os.IsNotExist(err):
+		return "", "", err
+	}
+	return copilotCredential(provider, cfg.Providers[provider])
 }
 
 // tryLegacyLlmConfig resolves an endpoint from the legacy llm config block.

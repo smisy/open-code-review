@@ -247,6 +247,10 @@ func checkAPIKeyRequirement(providerName, apiKey, apiKeyCmd string, preset llm.P
 	switch {
 	case isPreset && preset.AmbientAuth:
 		return nil
+	case isPreset && preset.CopilotAuth:
+		// The credential comes from 'ocr copilot login', which lives outside
+		// config.json; resolution reports a missing login with that hint.
+		return nil
 	case isPreset && preset.EnvVar != "":
 		if os.Getenv(preset.EnvVar) == "" {
 			return fmt.Errorf("API key is required for provider %s (configure it, set providers.%s.api_key_cmd, or set $%s)", providerName, providerName, preset.EnvVar)

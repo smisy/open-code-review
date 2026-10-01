@@ -15,6 +15,7 @@ internal fun generatedPresetProviderNames(): Set<String> = setOf(
     "deepseek",
     "edenai",
     "gemini",
+    "github-copilot",
     "hy-tokenplan",
     "iflytek",
     "kimi",

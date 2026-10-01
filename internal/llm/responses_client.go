@@ -50,6 +50,9 @@ func NewOpenAIResponsesClient(cfg ClientConfig) *OpenAIResponsesClient {
 		openaiopt.WithRequestTimeout(cfg.Timeout),
 		openaiopt.WithHTTPClient(httpClientWithHeaderTimeout(cfg.Timeout)),
 	}
+	if cfg.copilot != nil {
+		opts = append(opts, openaiopt.WithMiddleware(cfg.copilot.Middleware))
+	}
 	if mw := retryCodesMiddleware(cfg.RetryCodes); mw != nil {
 		opts = append(opts, openaiopt.WithMiddleware(mw))
 	}
