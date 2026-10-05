@@ -27,7 +27,7 @@ describe('generated provider presets', () => {
     }
   });
 
-  it.each(['bedrock', 'openai-responses'])('uses the built-in configuration path for %s', (name) => {
+  it.each(['bedrock', 'openai-responses', 'openai-codex'])('uses the built-in configuration path for %s', (name) => {
     const preset = lookupPreset(name);
     expect(preset).toBeDefined();
     const model = preset?.models[0] ?? '';

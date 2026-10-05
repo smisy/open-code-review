@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibaba/open-code-review/internal/llm/codex"
 	"github.com/alibaba/open-code-review/internal/llm/copilot"
 )
 
@@ -52,6 +53,7 @@ type ResolvedEndpoint struct {
 	// GitHub OAuth token, which the client exchanges per request rather than
 	// sending as is.
 	Copilot *copilot.Auth
+	Codex   *codex.Auth
 }
 
 // Environment variable names for OCR-specific configuration.
@@ -150,8 +152,9 @@ func ResolveEndpointWithOptions(configPath string, opts ResolveOptions) (Resolve
 			return ResolvedEndpoint{}, fmt.Errorf("resolve %s: %w", strategy.name, err)
 		}
 		// An ambient-auth endpoint is complete without a URL or token: the
-		// transport supplies both. Everything else still needs all three.
-		complete := ep.Model != "" && (ep.AmbientAuth || (ep.URL != "" && ep.Token != ""))
+		// transport supplies both. Codex supplies a token from its login at request
+		// time. Everything else still needs all three.
+		complete := ep.Model != "" && (ep.AmbientAuth || ep.Codex != nil || (ep.URL != "" && ep.Token != ""))
 		if ok && complete {
 			return requireEffortSupport(finalizeResolvedEndpoint(strategy.name, ep, env), opts)
 		}
@@ -537,7 +540,11 @@ func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (Re
 	// An ambient-auth provider is the exception — it has no key to configure,
 	// since credentials come from the environment's own chain and the request is
 	// signed rather than bearing a token.
-	if apiKey == "" && apiKeyCmd == "" && !ambientAuth && !copilotAuth {
+	codexAuth := isPreset && preset.CodexAuth
+	if codexAuth && (entry.URL != "" || entry.Protocol != "" || entry.AuthHeader != "" || apiKey != "" || apiKeyCmd != "") {
+		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q uses a ChatGPT login and a fixed Responses endpoint; url, protocol, auth_header and API keys cannot be overridden", cfg.Provider)
+	}
+	if apiKey == "" && apiKeyCmd == "" && !ambientAuth && !codexAuth && !copilotAuth {
 		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no api_key or api_key_cmd configured and no environment variable fallback found", cfg.Provider)
 	}
 
@@ -563,7 +570,7 @@ func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (Re
 	// `ocr config model`; it does not gate an override.
 	// The Copilot catalog is per account and changes without a release, so the
 	// preset list cannot gate an override either.
-	gateOverrideOnModelList := !ambientAuth && !copilotAuth
+	gateOverrideOnModelList := !ambientAuth && !copilotAuth && !codexAuth
 
 	// Apply model override with validation.
 	if modelOverride != "" {
@@ -666,7 +673,20 @@ func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (Re
 		apiKey = resolved
 	}
 
+	var codexEndpoint *codex.Auth
+	if codexAuth {
+		home, err := codex.Home()
+		if err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
+		path := filepath.Join(home, "auth.json")
+		if _, err := codex.Load(path); err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
+		codexEndpoint = &codex.Auth{Path: path}
+	}
 	return ResolvedEndpoint{
+		Codex:        codexEndpoint,
 		URL:          url,
 		Token:        apiKey,
 		Model:        model,

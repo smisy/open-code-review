@@ -340,6 +340,20 @@ export const PROVIDER_PRESETS: OcrProviderPreset[] = [
     ]
   },
   {
+    "name": "openai-codex",
+    "displayName": "OpenAI Codex (ChatGPT subscription)",
+    "protocol": "openai-responses",
+    "baseUrl": "https://chatgpt.com/backend-api/codex",
+    "envVar": "",
+    "codexAuth": true,
+    "models": [
+      "gpt-6.1-sol",
+      "gpt-6-sol",
+      "gpt-6-luna",
+      "gpt-5.6-sol"
+    ]
+  },
+  {
     "name": "openai-responses",
     "displayName": "OpenAI Responses API",
     "protocol": "openai-responses",

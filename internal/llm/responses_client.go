@@ -53,6 +53,9 @@ func NewOpenAIResponsesClient(cfg ClientConfig) *OpenAIResponsesClient {
 	if cfg.copilot != nil {
 		opts = append(opts, openaiopt.WithMiddleware(cfg.copilot.Middleware))
 	}
+	if cfg.codex != nil {
+		opts = append(opts, openaiopt.WithMiddleware(cfg.codex.Middleware))
+	}
 	if mw := retryCodesMiddleware(cfg.RetryCodes); mw != nil {
 		opts = append(opts, openaiopt.WithMiddleware(mw))
 	}

@@ -45,3 +45,8 @@ bin/opencodereview
 # Python
 __pycache__/
 *.py[cod]
+
+# Local agent memory and domain knowledge
+.codex/knowledge/
+.codex/memory/
+.codex/domains/

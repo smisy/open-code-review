@@ -336,6 +336,7 @@ function OfficialForm({ wide, config, connTest, onBack, onTest, onSave }: FormPr
   const savedEntry = config?.providers[providerName];
   const ambientAuth = usesAmbientAuth(preset, savedEntry?.protocol);
   const copilotAuth = usesCopilotAuth(preset);
+  const subscriptionAuth = preset.codexAuth === true;
 
   const modelOptions = useMemo(
     () => mergeModelLists(preset.models, savedEntry?.models ?? []),
@@ -418,7 +419,8 @@ function OfficialForm({ wide, config, connTest, onBack, onTest, onSave }: FormPr
         </FormItem>
       )}
 
-      {!ambientAuth && !copilotAuth && (
+      {subscriptionAuth && <div class="form-hint">{t('view.config.codexLoginHint')}</div>}
+      {!ambientAuth && !subscriptionAuth && !copilotAuth && (
         <FormItem
           label={t('view.config.apiKey')}
           hint={`${t('view.config.apiKeyEnvHint')} ${preset.envVar}`}

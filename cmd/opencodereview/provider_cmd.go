@@ -245,7 +245,7 @@ func checkAPIKeyRequirement(providerName, apiKey, apiKeyCmd string, preset llm.P
 		return nil
 	}
 	switch {
-	case isPreset && preset.AmbientAuth:
+	case isPreset && (preset.AmbientAuth || preset.CodexAuth):
 		return nil
 	case isPreset && preset.CopilotAuth:
 		// The credential comes from 'ocr copilot login', which lives outside
