@@ -131,6 +131,27 @@ func TestCodexLoginLock(t *testing.T) {
 	unlock()
 }
 
+func TestConfigSetCodexReasoningEffort(t *testing.T) {
+	cfg := &Config{}
+	if err := setProviderValue(cfg, "providers.openai-codex.reasoning_effort", " XHIGH "); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Providers["openai-codex"].ReasoningEffort; got != "xhigh" {
+		t.Fatalf("reasoning effort = %q", got)
+	}
+	for _, invalid := range []string{"turbo", "off"} {
+		if err := setProviderValue(cfg, "providers.openai-codex.reasoning_effort", invalid); err == nil {
+			t.Fatalf("accepted %q", invalid)
+		}
+	}
+	if err := setProviderValue(cfg, "providers.openai-codex.reasoning_effort", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Providers["openai-codex"].ReasoningEffort; got != "" {
+		t.Fatalf("clear left %q", got)
+	}
+}
+
 func TestCodexLiveLLMCommand(t *testing.T) {
 	path := os.Getenv("OCR_CODEX_LIVE_AUTH")
 	if path == "" {

@@ -74,6 +74,8 @@ API-ключ. Если `providers.<name>.api_key` не задан, OCR испо�
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
 
+`openai-codex` поддерживает `providers.openai-codex.reasoning_effort` и `--reasoning-effort` для `review` и `scan`. Значения: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; поддержка зависит от модели. Пустая настройка использует значение сервиса по умолчанию. CLI имеет приоритет над сохранённой настройкой, а обе имеют приоритет над `extra_body.reasoning.effort`. `off` применяется только к Copilot.
+
 ### Переопределение Base URL встроенного провайдера
 
 У каждого встроенного провайдера есть предустановленный Base URL

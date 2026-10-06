@@ -69,6 +69,8 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
 
+`openai-codex` は `providers.openai-codex.reasoning_effort` と `review`、`scan` の `--reasoning-effort` に対応します。値は `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max` で、対応はモデルによって異なります。空の設定はサービスの既定値を使用します。CLI の値は保存された設定より優先され、どちらも `extra_body.reasoning.effort` より優先されます。`off` は Copilot 専用です。
+
 ### 組み込み provider の Base URL を上書きする
 
 各組み込み provider にはプリセット Base URL があります（上表を参照）。

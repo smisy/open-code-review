@@ -59,6 +59,48 @@ func TestMiddleware(t *testing.T) {
 	}
 }
 
+func TestMiddlewareReasoningEffort(t *testing.T) {
+	for _, tc := range []struct{ effort, body, want string }{
+		{"xhigh", `{}`, "xhigh"},
+		{"none", `{"reasoning":{"effort":"high","summary":"auto"}}`, "none"},
+		{"", `{"reasoning":{"effort":"low","summary":"auto"}}`, "low"},
+		{"", `{}`, ""},
+	} {
+		a := &Auth{Path: credentialFile(t, "access"), ReasoningEffort: tc.effort}
+		req, _ := http.NewRequest(http.MethodPost, BaseURL+"/responses", strings.NewReader(tc.body))
+		resp, err := a.Middleware(req, func(r *http.Request) (*http.Response, error) {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			reasoning, _ := body["reasoning"].(map[string]any)
+			if tc.want == "" {
+				if body["reasoning"] != nil {
+					t.Errorf("default introduced reasoning: %v", reasoning)
+				}
+			} else if reasoning["effort"] != tc.want {
+				t.Errorf("effort=%v want=%q", reasoning["effort"], tc.want)
+			}
+			if strings.Contains(tc.body, "summary") && reasoning["summary"] != "auto" {
+				t.Error("lost reasoning summary")
+			}
+			return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(strings.NewReader(""))}, nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	a := &Auth{Path: "missing", ReasoningEffort: "invalid"}
+	req, _ := http.NewRequest(http.MethodPost, BaseURL+"/responses", strings.NewReader(`{}`))
+	if _, err := a.Middleware(req, func(*http.Request) (*http.Response, error) {
+		t.Fatal("sent invalid effort")
+		return nil, nil
+	}); err == nil || !strings.Contains(err.Error(), "invalid reasoning effort") {
+		t.Fatalf("invalid effort reached credentials: %v", err)
+	}
+}
+
 func TestStream(t *testing.T) {
 	for _, tt := range []struct {
 		input string

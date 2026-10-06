@@ -67,6 +67,8 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
 
+`openai-codex`는 `providers.openai-codex.reasoning_effort`와 `review`, `scan`의 `--reasoning-effort`를 지원합니다. 값은 `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`이며 지원 여부는 모델에 따라 다릅니다. 빈 설정은 서비스 기본값을 사용합니다. CLI 값은 저장된 설정보다 우선하며 둘 다 `extra_body.reasoning.effort`보다 우선합니다. `off`는 Copilot 전용입니다.
+
 ### 내장 프로바이더의 Base URL 재정의 {#overriding-a-built-in-provider-s-base-url}
 
 모든 내장 프로바이더에는 미리 설정된 Base URL이 있습니다(위 표 참고). 내장 프로바이더를 다른 엔드포인트로 보내려면 `providers.<name>.url`을 설정합니다(예: 자체 호스팅 LiteLLM 게이트웨이는 미리 설정된 기본값 `http://localhost:4000/v1`에 있는 경우가 드뭅니다):

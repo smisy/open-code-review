@@ -27,6 +27,18 @@ func (a *Auth) Middleware(req *http.Request, next func(*http.Request) (*http.Res
 	if err := json.Unmarshal(data, &body); err != nil {
 		return nil, err
 	}
+	effort, err := ResolveReasoningEffort(a.ReasoningEffort, "")
+	if err != nil {
+		return nil, err
+	}
+	if effort != "" {
+		reasoning, _ := body["reasoning"].(map[string]any)
+		if reasoning == nil {
+			reasoning = map[string]any{}
+		}
+		reasoning["effort"] = effort
+		body["reasoning"] = reasoning
+	}
 	body["stream"] = true
 	body["store"] = false
 	if _, ok := body["instructions"]; !ok {

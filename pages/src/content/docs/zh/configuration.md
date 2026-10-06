@@ -68,6 +68,8 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
 
+`openai-codex` 支持 `providers.openai-codex.reasoning_effort` 和 `review`、`scan` 的 `--reasoning-effort`。可用值为 `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，具体取决于模型。空值使用服务默认设置；命令行值优先于保存的设置，两者均优先于 `extra_body.reasoning.effort`。`off` 仅适用于 Copilot。
+
 ### 覆盖内置 provider 的 Base URL
 
 每个内置 provider 都有一个预设 Base URL（见上表）。要将内置 provider

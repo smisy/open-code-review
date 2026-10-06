@@ -68,6 +68,43 @@ func TestCodexResolver(t *testing.T) {
 	}
 }
 
+func TestCodexReasoningEffort(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	home, err := codex.Home()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "auth.json"), []byte(`{"auth_mode":"chatgpt","tokens":{"access_token":"access","account_id":"account"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, explicit := range []string{"", "openai-codex"} {
+		for _, tc := range []struct{ configured, override, want string }{
+			{"", "", ""}, {"high", "", "high"}, {"low", " XHIGH ", "xhigh"}, {"xhigh", "none", "none"},
+		} {
+			path := writeConfig(t, map[string]any{"provider": "openai-codex", "providers": map[string]any{"openai-codex": map[string]any{"model": "gpt-6.1-sol", "reasoning_effort": tc.configured}}})
+			ep, err := ResolveEndpointWithOptions(path, ResolveOptions{Provider: explicit, ReasoningEffort: tc.override})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ep.Codex == nil || ep.Codex.ReasoningEffort != tc.want {
+				t.Fatalf("config=%q override=%q endpoint=%+v", tc.configured, tc.override, ep.Codex)
+			}
+		}
+	}
+	if err := os.Remove(filepath.Join(home, "auth.json")); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ configured, override string }{{"turbo", ""}, {"high", "off"}, {"", "ultra"}} {
+		cfg := configFile{Provider: "openai-codex", Model: "gpt-6.1-sol", Providers: map[string]providerEntryConfig{"openai-codex": {ReasoningEffort: tc.configured}}}
+		if _, _, err := tryProviderConfig(cfg, "", tc.override); err == nil || !strings.Contains(err.Error(), "invalid reasoning effort") {
+			t.Fatalf("invalid effort was not rejected before login: %v", err)
+		}
+	}
+}
+
 func TestCodexResponsesToolRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "auth.json")
 	if err := os.WriteFile(path, []byte(`{"auth_mode":"chatgpt","tokens":{"access_token":"access","account_id":"account"}}`), 0600); err != nil {
@@ -81,6 +118,10 @@ func TestCodexResponsesToolRoundTrip(t *testing.T) {
 		}
 		if body["stream"] != true || body["store"] != false || body["model"] != "gpt-6.1-sol" {
 			t.Errorf("request=%v", body)
+		}
+		reasoning, _ := body["reasoning"].(map[string]any)
+		if reasoning["effort"] != "xhigh" || reasoning["summary"] != "auto" {
+			t.Errorf("reasoning was not preserved across tool turns: %v", reasoning)
 		}
 		if r.Header.Get("Authorization") != "Bearer access" || r.Header.Get("ChatGPT-Account-Id") != "account" {
 			t.Error("missing auth headers")
@@ -103,7 +144,7 @@ func TestCodexResponsesToolRoundTrip(t *testing.T) {
 	httpClientWithHeaderTimeout = func(time.Duration) *http.Client {
 		return &http.Client{Transport: codexTestTransport{server: server.URL, base: http.DefaultTransport}}
 	}
-	client := NewLLMClient(ResolvedEndpoint{URL: codex.BaseURL, Model: "gpt-6.1-sol", Protocol: ProtocolOpenAIResponses, Codex: &codex.Auth{Path: path}}, nil, nil)
+	client := NewLLMClient(ResolvedEndpoint{URL: codex.BaseURL, Model: "gpt-6.1-sol", Protocol: ProtocolOpenAIResponses, Codex: &codex.Auth{Path: path, ReasoningEffort: "xhigh"}, ExtraBody: map[string]any{"reasoning": map[string]any{"effort": "low", "summary": "auto"}}}, nil, nil)
 	req := ChatRequest{Messages: []Message{{Role: "system", Content: "Review code"}, {Role: "user", Content: "Inspect this change"}}}
 	first, err := client.CompletionsWithCtx(context.Background(), req)
 	if err != nil {

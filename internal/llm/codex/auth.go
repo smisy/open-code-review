@@ -58,9 +58,10 @@ func Load(path string) (Credentials, error) {
 
 // Auth reloads credentials on every attempt so long reviews see renewed logins.
 type Auth struct {
-	Path       string
-	Client     *http.Client
-	RefreshURL string
+	Path            string
+	Client          *http.Client
+	RefreshURL      string
+	ReasoningEffort string
 }
 
 func (a *Auth) token(ctx context.Context, force bool) (Tokens, error) {

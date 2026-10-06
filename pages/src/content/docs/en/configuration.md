@@ -197,6 +197,21 @@ URL, protocol and auth-header overrides are rejected. Subscription requests
 always stream and set `store=false`. Sampling and output-token limits are
 omitted because the Codex endpoint does not accept them.
 
+
+Set Codex reasoning effort per provider or per run:
+
+```bash
+ocr config set providers.openai-codex.reasoning_effort high
+ocr review --reasoning-effort xhigh
+ocr scan --reasoning-effort xhigh
+```
+
+Supported values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and
+`max`; availability depends on the selected model. An empty setting uses the
+service default. A CLI override wins over the saved setting, and either setting
+overrides `extra_body.reasoning.effort` while preserving other reasoning fields.
+`off` is Copilot-only and is rejected for Codex.
+
 This integration follows Codex's authentication and backend conventions;
 backend changes may require an OCR update. ChatGPT plan limits apply.
 
