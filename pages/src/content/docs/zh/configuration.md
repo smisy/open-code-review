@@ -70,6 +70,11 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 
 `openai-codex` 支持 `providers.openai-codex.reasoning_effort` 和 `review`、`scan` 的 `--reasoning-effort`。可用值为 `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，具体取决于模型。空值使用服务默认设置；命令行值优先于保存的设置，两者均优先于 `extra_body.reasoning.effort`。`off` 仅适用于 Copilot。
 
+内置 provider 的模型列表只为 `ocr config model` 提供选择建议，不限制 `--model`。
+如果指定的模型既不在内置列表中，也不在 `providers.<name>.models` 中，OCR 会向
+stderr 输出警告；发送请求时由 provider 验证模型。自定义 provider 仍遵循原有的
+`--model` 校验规则。
+
 ### 覆盖内置 provider 的 Base URL
 
 每个内置 provider 都有一个预设 Base URL（见上表）。要将内置 provider

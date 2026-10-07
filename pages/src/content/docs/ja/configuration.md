@@ -71,6 +71,11 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 
 `openai-codex` は `providers.openai-codex.reasoning_effort` と `review`、`scan` の `--reasoning-effort` に対応します。値は `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max` で、対応はモデルによって異なります。空の設定はサービスの既定値を使用します。CLI の値は保存された設定より優先され、どちらも `extra_body.reasoning.effort` より優先されます。`off` は Copilot 専用です。
 
+組み込み provider のモデル一覧は `ocr config model` の選択候補であり、`--model`
+の制限には使われません。組み込み一覧にも `providers.<name>.models` にもないモデルを
+指定すると、OCR は stderr に警告を出します。モデルはリクエスト送信時に provider が
+検証します。カスタム provider には従来の `--model` 検証ルールが適用されます。
+
 ### 組み込み provider の Base URL を上書きする
 
 各組み込み provider にはプリセット Base URL があります（上表を参照）。
