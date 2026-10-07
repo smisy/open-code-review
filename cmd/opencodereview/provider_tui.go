@@ -998,7 +998,7 @@ func (m providerTUIModel) apiKeyStepCanConfirm() (ok bool, errMsg string) {
 	}
 	if m.activeTab == tabOfficial {
 		p := m.currentProvider()
-		if p.AmbientAuth || p.CopilotAuth {
+		if p.AmbientAuth || p.CopilotAuth || p.CodexAuth {
 			// Reachable when an existing config is edited: an empty key is the
 			// correct state for a provider that signs from the AWS chain or
 			// uses the 'ocr copilot login' credential.
@@ -1872,7 +1872,7 @@ func (m providerTUIModel) handleEnter() (tea.Model, tea.Cmd) {
 			m.formError = err.Error()
 			return m, nil
 		}
-		if p := m.currentProvider(); m.activeTab == tabOfficial && (p.AmbientAuth || p.CopilotAuth) {
+		if p := m.currentProvider(); m.activeTab == tabOfficial && (p.AmbientAuth || p.CopilotAuth || p.CodexAuth) {
 			// An ambient-auth provider has no key to collect, so the model step
 			// is the last one. Showing an API-key prompt that must be left blank
 			// would read as a step the user failed to complete.

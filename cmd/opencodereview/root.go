@@ -61,6 +61,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(llmCmd)
 	rootCmd.AddCommand(copilotCmd)
+	rootCmd.AddCommand(codexCmd)
 	rootCmd.AddCommand(rulesCmd)
 	rootCmd.AddCommand(viewerCmd)
 	rootCmd.AddCommand(completionCmd)

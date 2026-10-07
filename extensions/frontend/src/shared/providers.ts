@@ -15,6 +15,7 @@ export interface OcrProviderPreset {
   envVar: string;
   ambientAuth?: boolean;
   copilotAuth?: boolean;
+  codexAuth?: boolean;
   models: string[];
 }
 

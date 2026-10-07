@@ -263,7 +263,7 @@ func TestReasoningEffortOverrideRejectedForOtherProviders(t *testing.T) {
 		"model":     "claude-opus-5",
 		"providers": map[string]any{"anthropic": map[string]any{"api_key": "sk-test"}},
 	})
-	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{ReasoningEffort: "max"}); err == nil || !strings.Contains(err.Error(), "only supported by the github-copilot provider") {
+	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{ReasoningEffort: "max"}); err == nil || !strings.Contains(err.Error(), "only supported by the github-copilot and openai-codex providers") {
 		t.Fatalf("config path: err = %v", err)
 	}
 	if _, err := ResolveEndpointWithOptions(path, ResolveOptions{Provider: "anthropic", ReasoningEffort: "max"}); err == nil {

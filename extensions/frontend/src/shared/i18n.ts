@@ -74,6 +74,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.customModel': 'Enter custom model…',
     'view.config.apiKey': 'API Key',
     'view.config.apiKeyEnvHint': 'Also available via env var',
+    'view.config.codexLoginHint': 'Run ocr codex login in a terminal to sign in with ChatGPT.',
     'view.config.apiKeySaved': 'Saved (leave blank to keep)',
     'view.config.copilotSignIn': 'GitHub sign-in',
     'view.config.copilotSignInHint': 'Run this in a terminal to sign in with your Copilot subscription. COPILOT_GITHUB_TOKEN also works.',
@@ -229,6 +230,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.customModel': '输入自定义模型…',
     'view.config.apiKey': 'API 密钥',
     'view.config.apiKeyEnvHint': '也可通过环境变量',
+    'view.config.codexLoginHint': '在终端运行 ocr codex login 以使用 ChatGPT 登录。', // allow-non-english: translated UI copy
     'view.config.apiKeySaved': '已保存（留空保持不变）',
     'view.config.copilotSignIn': 'GitHub 登录',
     'view.config.copilotSignInHint': '在终端中运行此命令，使用 Copilot 订阅登录。也可以设置 COPILOT_GITHUB_TOKEN。',
@@ -383,6 +385,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.customModel': 'カスタムモデルを入力…',
     'view.config.apiKey': 'API キー',
     'view.config.apiKeyEnvHint': '環境変数でも設定できます',
+    'view.config.codexLoginHint': 'ターミナルで ocr codex login を実行し、ChatGPT にサインインしてください。', // allow-non-english: translated UI copy
     'view.config.apiKeySaved': '保存済み（空欄なら変更しません）',
     'view.config.copilotSignIn': 'GitHub サインイン',
     'view.config.copilotSignInHint': 'ターミナルでこのコマンドを実行し、Copilot サブスクリプションでサインインします。COPILOT_GITHUB_TOKEN も使えます。',
@@ -545,6 +548,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.customModel': '사용자 지정 모델 입력…',
     'view.config.apiKey': 'API 키',
     'view.config.apiKeyEnvHint': '환경 변수로도 설정할 수 있습니다',
+    'view.config.codexLoginHint': '터미널에서 ocr codex login을 실행하여 ChatGPT에 로그인하세요.', // allow-non-english: translated UI copy
     'view.config.apiKeySaved': '저장됨(비워 두면 유지)',
     'view.config.copilotSignIn': 'GitHub 로그인',
     'view.config.copilotSignInHint': '터미널에서 이 명령을 실행해 Copilot 구독으로 로그인하세요. COPILOT_GITHUB_TOKEN도 사용할 수 있습니다.',
@@ -707,6 +711,7 @@ const messages: Record<SupportedLocale, Record<string, string>> = {
     'view.config.customModel': 'Введите свою модель…',
     'view.config.apiKey': 'API-ключ',
     'view.config.apiKeyEnvHint': 'Также задаётся переменной окружения',
+    'view.config.codexLoginHint': 'Выполните ocr codex login в терминале, чтобы войти через ChatGPT.', // allow-non-english: translated UI copy
     'view.config.apiKeySaved': 'Сохранено (оставьте пустым, чтобы не менять)',
     'view.config.copilotSignIn': 'Вход через GitHub',
     'view.config.copilotSignInHint': 'Выполните эту команду в терминале, чтобы войти с подпиской Copilot. Также подходит COPILOT_GITHUB_TOKEN.',

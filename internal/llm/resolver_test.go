@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/alibaba/open-code-review/internal/llm/codex"
 )
 
 func TestStripModelSuffix(t *testing.T) {
@@ -1405,10 +1407,25 @@ func TestResolveEndpointWithModelOverride_AllBuiltInProvidersAcceptUnlistedModel
 	const model = "unlisted-model-for-test"
 	for _, provider := range ListProviders() {
 		t.Run(provider.Name, func(t *testing.T) {
+			entry := providerEntryConfig{APIKey: "test-key", AWSRegion: "us-west-2"}
+			if provider.CodexAuth {
+				setTestHome(t, t.TempDir())
+				home, err := codex.Home()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.MkdirAll(home, 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(home, "auth.json"), []byte(`{"auth_mode":"chatgpt","tokens":{"access_token":"access","account_id":"account"}}`), 0600); err != nil {
+					t.Fatal(err)
+				}
+				entry = providerEntryConfig{}
+			}
 			path, _ := writeResolverConfig(t, configFile{
 				Provider: provider.Name,
 				Providers: map[string]providerEntryConfig{
-					provider.Name: {APIKey: "test-key", AWSRegion: "us-west-2"},
+					provider.Name: entry,
 				},
 			})
 			var ep ResolvedEndpoint

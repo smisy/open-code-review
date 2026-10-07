@@ -25,6 +25,7 @@ type preset struct {
 	EnvVar      string   `json:"envVar"`
 	AmbientAuth bool     `json:"ambientAuth,omitempty"`
 	CopilotAuth bool     `json:"copilotAuth,omitempty"`
+	CodexAuth   bool     `json:"codexAuth,omitempty"`
 	Models      []string `json:"models"`
 }
 
@@ -119,6 +120,7 @@ func render(providers []llm.Provider) ([]byte, error) {
 			EnvVar:      p.EnvVar,
 			AmbientAuth: p.AmbientAuth,
 			CopilotAuth: p.CopilotAuth,
+			CodexAuth:   p.CodexAuth,
 			Models:      models,
 		})
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/alibaba/open-code-review/internal/config/template"
 	"github.com/alibaba/open-code-review/internal/llm"
+	"github.com/alibaba/open-code-review/internal/llm/codex"
 	"github.com/alibaba/open-code-review/internal/llm/copilot"
 	"github.com/spf13/cobra"
 )
@@ -315,7 +316,7 @@ type ProviderEntry struct {
 	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
 	RetryCodes   []int             `json:"retry_codes,omitempty"`
 
-	// ReasoningEffort is read only by the github-copilot provider.
+	// ReasoningEffort applies to github-copilot and openai-codex.
 	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 
 	// AWSProfile and AWSRegion pin the credentials and region for providers that
@@ -869,10 +870,14 @@ func applyProviderField(providerName string, entry *ProviderEntry, field, key, v
 	case "reasoning_effort":
 		effort := strings.ToLower(strings.TrimSpace(value))
 		preset, isPreset := llm.LookupProvider(providerName)
-		if !isPreset || !preset.CopilotAuth {
-			return fmt.Errorf("reasoning_effort applies only to the %s provider, not %q", copilotProviderName, providerName)
+		if !isPreset || (!preset.CopilotAuth && !preset.CodexAuth) {
+			return fmt.Errorf("reasoning_effort applies only to the github-copilot and openai-codex providers, not %q", providerName)
 		}
-		if effort != "" && !copilot.ValidReasoningEffort(effort) {
+		if preset.CodexAuth {
+			if _, err := codex.ResolveReasoningEffort(effort, ""); err != nil {
+				return fmt.Errorf("invalid reasoning_effort for %s: %w", key, err)
+			}
+		} else if effort != "" && !copilot.ValidReasoningEffort(effort) {
 			return fmt.Errorf("invalid reasoning_effort %q for %s; use one of %s, or an empty value to clear it", value, key, copilot.ReasoningEfforts())
 		}
 		entry.ReasoningEffort = effort

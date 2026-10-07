@@ -125,6 +125,7 @@ ocr r      [flags]   (alias)
 | `--effort <level>` | — | 設定または `medium` | レビューの労力プリセット: `low` = main ループ 1 ラウンド、`medium` = 2 ラウンド（デフォルト）、`high` = 3 ラウンド。ラウンドが多いほど recall は上がりますが、時間とトークンも増えます。`ocr config set effort <level>` で永続化できます。 |
 | `--provider <name>` | — | — | 今回の実行で設定済み provider を選択します。`providers` と `custom_providers` の両方の名前を使用できます。 |
 | `--model <name>` | — | — | 今回の実行で解決済みの LLM model を上書きします（例: `claude-opus-4-6`）。 |
+| `--reasoning-effort <level>` | — | — | github-copilot または openai-codex の推論強度を今回の実行に設定します。対応する値はプロバイダーとモデルによって異なります。 |
 | `--max-git-procs <n>` | — | `16` | 並行 git サブプロセスの最大数。 |
 | `--tools <path>` | — | 埋め込み | カスタム JSON ツール設定ファイルのパス。埋め込みのツール定義を上書きします。 |
 

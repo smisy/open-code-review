@@ -46,6 +46,7 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `github-copilot` | 按模型系列 | 由 Copilot token 决定 | `COPILOT_GITHUB_TOKEN`（GitHub token；或 `ocr copilot login`） |
 | `openai` | openai | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
 | `openai-responses` | openai-responses | `https://api.openai.com/v1` | `OPENAI_RESPONSES_API_KEY` |
+| `openai-codex` | openai-responses | `https://chatgpt.com/backend-api/codex` | `ocr codex login` (ChatGPT subscription) |
 | `openrouter` | openai | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | `gemini` | openai | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
 | `dashscope` | openai | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
@@ -66,6 +67,8 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `siliconflow-cn`  | openai | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
+
+`openai-codex` 支持 `providers.openai-codex.reasoning_effort` 和 `review`、`scan` 的 `--reasoning-effort`。可用值为 `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，具体取决于模型。空值使用服务默认设置；命令行值优先于保存的设置，两者均优先于 `extra_body.reasoning.effort`。`off` 仅适用于 Copilot。
 
 内置 provider 的模型列表只为 `ocr config model` 提供选择建议，不限制 `--model`。
 如果指定的模型既不在内置列表中，也不在 `providers.<name>.models` 中，OCR 会向

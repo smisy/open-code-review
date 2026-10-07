@@ -47,6 +47,7 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `github-copilot` | モデル系列ごと | Copilot トークンから決定 | `COPILOT_GITHUB_TOKEN`（GitHub トークン、または `ocr copilot login`） |
 | `openai` | openai | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
 | `openai-responses` | openai-responses | `https://api.openai.com/v1` | `OPENAI_RESPONSES_API_KEY` |
+| `openai-codex` | openai-responses | `https://chatgpt.com/backend-api/codex` | `ocr codex login` (ChatGPT subscription) |
 | `openrouter` | openai | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | `gemini` | openai | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
 | `dashscope` | openai | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
@@ -67,6 +68,8 @@ ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
 | `siliconflow-cn`  | openai | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
+
+`openai-codex` は `providers.openai-codex.reasoning_effort` と `review`、`scan` の `--reasoning-effort` に対応します。値は `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max` で、対応はモデルによって異なります。空の設定はサービスの既定値を使用します。CLI の値は保存された設定より優先され、どちらも `extra_body.reasoning.effort` より優先されます。`off` は Copilot 専用です。
 
 組み込み provider のモデル一覧は `ocr config model` の選択候補であり、`--model`
 の制限には使われません。組み込み一覧にも `providers.<name>.models` にもないモデルを

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alibaba/open-code-review/internal/llm/codex"
 	"github.com/alibaba/open-code-review/internal/llm/copilot"
 )
 
@@ -52,6 +53,7 @@ type ResolvedEndpoint struct {
 	// GitHub OAuth token, which the client exchanges per request rather than
 	// sending as is.
 	Copilot *copilot.Auth
+	Codex   *codex.Auth
 }
 
 // Environment variable names for OCR-specific configuration.
@@ -85,8 +87,8 @@ const (
 type ResolveOptions struct {
 	Provider string
 	Model    string
-	// ReasoningEffort overrides the github-copilot provider's configured
-	// reasoning effort for this run. Other providers reject it.
+	// ReasoningEffort overrides the github-copilot or openai-codex provider's
+	// configured reasoning effort for this run. Other providers reject it.
 	ReasoningEffort string
 }
 
@@ -150,8 +152,9 @@ func ResolveEndpointWithOptions(configPath string, opts ResolveOptions) (Resolve
 			return ResolvedEndpoint{}, fmt.Errorf("resolve %s: %w", strategy.name, err)
 		}
 		// An ambient-auth endpoint is complete without a URL or token: the
-		// transport supplies both. Everything else still needs all three.
-		complete := ep.Model != "" && (ep.AmbientAuth || (ep.URL != "" && ep.Token != ""))
+		// transport supplies both. Codex supplies a token from its login at request
+		// time. Everything else still needs all three.
+		complete := ep.Model != "" && (ep.AmbientAuth || ep.Codex != nil || (ep.URL != "" && ep.Token != ""))
 		if ok && complete {
 			return requireEffortSupport(finalizeResolvedEndpoint(strategy.name, ep, env), opts)
 		}
@@ -163,8 +166,8 @@ func ResolveEndpointWithOptions(configPath string, opts ResolveOptions) (Resolve
 // requireEffortSupport rejects a reasoning-effort override for a provider that
 // would silently ignore it.
 func requireEffortSupport(ep ResolvedEndpoint, opts ResolveOptions) (ResolvedEndpoint, error) {
-	if strings.TrimSpace(opts.ReasoningEffort) != "" && ep.Copilot == nil {
-		return ResolvedEndpoint{}, fmt.Errorf("--reasoning-effort is only supported by the github-copilot provider, not %q", ep.Source)
+	if strings.TrimSpace(opts.ReasoningEffort) != "" && ep.Copilot == nil && ep.Codex == nil {
+		return ResolvedEndpoint{}, fmt.Errorf("--reasoning-effort is only supported by the github-copilot and openai-codex providers, not %q", ep.Source)
 	}
 	return ep, nil
 }
@@ -369,7 +372,7 @@ type providerEntryConfig struct {
 	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
 	RetryCodes   []int             `json:"retry_codes,omitempty"`
 
-	// ReasoningEffort is read only by the github-copilot provider.
+	// ReasoningEffort applies to github-copilot and openai-codex.
 	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 
 	// AWSProfile and AWSRegion apply to ambient-auth providers that sign with
@@ -477,9 +480,10 @@ func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (Re
 	// Copilot resolves its credential late, through copilotCredential, which
 	// adds the stored login as a last source.
 	copilotAuth := isPreset && preset.CopilotAuth
+	codexAuth := isPreset && preset.CodexAuth
 	// Reject an effort override for other providers before api_key_cmd can run.
-	if strings.TrimSpace(effortOverride) != "" && !copilotAuth {
-		return ResolvedEndpoint{}, false, fmt.Errorf("--reasoning-effort is only supported by the github-copilot provider, not %q", cfg.Provider)
+	if strings.TrimSpace(effortOverride) != "" && !copilotAuth && !codexAuth {
+		return ResolvedEndpoint{}, false, fmt.Errorf("--reasoning-effort is only supported by the github-copilot and openai-codex providers, not %q", cfg.Provider)
 	}
 
 	var url, protocol, authHeader, model string
@@ -537,7 +541,10 @@ func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (Re
 	// An ambient-auth provider is the exception — it has no key to configure,
 	// since credentials come from the environment's own chain and the request is
 	// signed rather than bearing a token.
-	if apiKey == "" && apiKeyCmd == "" && !ambientAuth && !copilotAuth {
+	if codexAuth && (entry.URL != "" || entry.Protocol != "" || entry.AuthHeader != "" || apiKey != "" || apiKeyCmd != "") {
+		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q uses a ChatGPT login and a fixed Responses endpoint; url, protocol, auth_header and API keys cannot be overridden", cfg.Provider)
+	}
+	if apiKey == "" && apiKeyCmd == "" && !ambientAuth && !codexAuth && !copilotAuth {
 		return ResolvedEndpoint{}, false, fmt.Errorf("provider %q has no api_key or api_key_cmd configured and no environment variable fallback found", cfg.Provider)
 	}
 
@@ -661,7 +668,24 @@ func tryProviderConfig(cfg configFile, modelOverride, effortOverride string) (Re
 		apiKey = resolved
 	}
 
+	var codexEndpoint *codex.Auth
+	if codexAuth {
+		effort, err := codex.ResolveReasoningEffort(entry.ReasoningEffort, effortOverride)
+		if err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
+		home, err := codex.Home()
+		if err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
+		path := filepath.Join(home, "auth.json")
+		if _, err := codex.Load(path); err != nil {
+			return ResolvedEndpoint{}, false, err
+		}
+		codexEndpoint = &codex.Auth{Path: path, ReasoningEffort: effort}
+	}
 	return ResolvedEndpoint{
+		Codex:        codexEndpoint,
 		URL:          url,
 		Token:        apiKey,
 		Model:        model,

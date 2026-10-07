@@ -49,6 +49,7 @@ environment variable.
 | `github-copilot` | by model family | from the Copilot token | `COPILOT_GITHUB_TOKEN` (GitHub token; or `ocr copilot login`) |
 | `openai` | openai | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
 | `openai-responses` | openai-responses | `https://api.openai.com/v1` | `OPENAI_RESPONSES_API_KEY` |
+| `openai-codex` | openai-responses | `https://chatgpt.com/backend-api/codex` | `ocr codex login` (ChatGPT subscription) |
 | `openrouter` | openai | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | `gemini` | openai | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
 | `dashscope` | openai | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
@@ -178,6 +179,47 @@ ocr review --reasoning-effort max
 `off` sends no reasoning parameters. Values set through `extra_body` win over
 the provider's choice. Any model your plan offers
 is accepted, whether or not it is in the preset list.
+### OpenAI Codex (ChatGPT subscription)
+
+`openai-codex` uses a ChatGPT subscription through the Codex Responses endpoint.
+Install the official Codex CLI (`npm install -g @openai/codex`), then run:
+
+```bash
+ocr codex login
+ocr config set provider openai-codex
+ocr config set model gpt-6.1-sol
+ocr llm test
+```
+
+Login uses the official CLI's device flow. OCR keeps its login separately in
+`~/.opencodereview/codex/auth.json`, refreshes expiring tokens automatically,
+and retries authentication once after a 401. `ocr codex status` checks the
+local login; `ocr codex logout` removes it. These commands do not affect your
+normal Codex CLI login. Login preserves an existing active provider.
+
+The preset model list is a starting point: any model your account offers can
+be selected with `--model`. The protocol and endpoint are fixed; API-key,
+URL, protocol and auth-header overrides are rejected. Subscription requests
+always stream and set `store=false`. Sampling and output-token limits are
+omitted because the Codex endpoint does not accept them.
+
+
+Set Codex reasoning effort per provider or per run:
+
+```bash
+ocr config set providers.openai-codex.reasoning_effort high
+ocr review --reasoning-effort xhigh
+ocr scan --reasoning-effort xhigh
+```
+
+Supported values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and
+`max`; availability depends on the selected model. An empty setting uses the
+service default. A CLI override wins over the saved setting, and either setting
+overrides `extra_body.reasoning.effort` while preserving other reasoning fields.
+`off` is Copilot-only and is rejected for Codex.
+
+This integration follows Codex's authentication and backend conventions;
+backend changes may require an OCR update. ChatGPT plan limits apply.
 
 ### Custom providers
 

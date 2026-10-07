@@ -41,6 +41,8 @@ type Provider struct {
 	// request time, its host comes from that token, and its protocol follows
 	// the model family (see package copilot).
 	CopilotAuth bool
+	// CodexAuth uses a ChatGPT subscription login rather than an API key.
+	CodexAuth bool
 }
 
 // After modifying the built-in provider registry, run `go generate ./internal/llm`
@@ -132,6 +134,14 @@ var registry = []Provider{
 			"gpt-5-mini",
 			"gemini-3.8-flash",
 		},
+	},
+	{
+		Name:        "openai-codex",
+		DisplayName: "OpenAI Codex (ChatGPT subscription)",
+		Protocol:    ProtocolOpenAIResponses,
+		BaseURL:     "https://chatgpt.com/backend-api/codex",
+		CodexAuth:   true,
+		Models:      []string{"gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol"},
 	},
 	{
 		Name:        "openrouter",

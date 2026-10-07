@@ -78,7 +78,7 @@ func TestListProviders_Order(t *testing.T) {
 	if len(providers) < 3 {
 		t.Fatalf("expected at least 3 providers, got %d", len(providers))
 	}
-	expected := []string{"anthropic", "baidu-qianfan", "bedrock", "dashscope", "dashscope-tokenplan", "deepseek", "edenai", "gemini", "github-copilot", "hy-tokenplan", "iflytek", "kimi", "kimi-global", "litellm", "mimo", "minimax", "minimax-cn", "mistral", "novita", "ollama-cloud", "openai", "openai-responses", "openrouter", "siliconflow", "siliconflow-cn", "tencent-tokenhub", "volcengine", "xai", "z-ai", "z-ai-coding"}
+	expected := []string{"anthropic", "baidu-qianfan", "bedrock", "dashscope", "dashscope-tokenplan", "deepseek", "edenai", "gemini", "github-copilot", "hy-tokenplan", "iflytek", "kimi", "kimi-global", "litellm", "mimo", "minimax", "minimax-cn", "mistral", "novita", "ollama-cloud", "openai", "openai-codex", "openai-responses", "openrouter", "siliconflow", "siliconflow-cn", "tencent-tokenhub", "volcengine", "xai", "z-ai", "z-ai-coding"}
 	if len(providers) != len(expected) {
 		t.Fatalf("expected %d providers, got %d", len(expected), len(providers))
 	}
@@ -501,5 +501,12 @@ func TestProviders_AllProtocolsCanonical(t *testing.T) {
 		if err := ValidateProtocol(p.Protocol); err != nil {
 			t.Errorf("provider %q has non-canonical Protocol %q: %v", p.Name, p.Protocol, err)
 		}
+	}
+}
+
+func TestLookupProvider_OpenAICodexDetails(t *testing.T) {
+	p, ok := LookupProvider("openai-codex")
+	if !ok || !p.CodexAuth || p.AmbientAuth || p.Protocol != ProtocolOpenAIResponses || p.BaseURL != "https://chatgpt.com/backend-api/codex" || p.EnvVar != "" || strings.Join(p.Models, ",") != "gpt-6.1-sol,gpt-6-sol,gpt-6-luna,gpt-5.6-sol" {
+		t.Fatalf("preset=%+v", p)
 	}
 }

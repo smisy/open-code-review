@@ -52,6 +52,7 @@ API-ключ. Если `providers.<name>.api_key` не задан, OCR испо�
 | `github-copilot` | по семейству модели | определяется токеном Copilot | `COPILOT_GITHUB_TOKEN` (токен GitHub; или `ocr copilot login`) |
 | `openai` | openai | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
 | `openai-responses` | openai-responses | `https://api.openai.com/v1` | `OPENAI_RESPONSES_API_KEY` |
+| `openai-codex` | openai-responses | `https://chatgpt.com/backend-api/codex` | `ocr codex login` (ChatGPT subscription) |
 | `openrouter` | openai | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | `gemini` | openai | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` |
 | `dashscope` | openai | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
@@ -72,6 +73,8 @@ API-ключ. Если `providers.<name>.api_key` не задан, OCR испо�
 | `siliconflow-cn`  | openai | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
 | `novita` | openai | `https://api.novita.ai/openai` | `NOVITA_API_KEY` |
 | `xai` | openai | `https://api.x.ai/v1` | `XAI_API_KEY` |
+
+`openai-codex` поддерживает `providers.openai-codex.reasoning_effort` и `--reasoning-effort` для `review` и `scan`. Значения: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`; поддержка зависит от модели. Пустая настройка использует значение сервиса по умолчанию. CLI имеет приоритет над сохранённой настройкой, а обе имеют приоритет над `extra_body.reasoning.effort`. `off` применяется только к Copilot.
 
 Списки моделей встроенных провайдеров служат подсказкой для `ocr config model` и
 не ограничивают `--model`. Если модель отсутствует и во встроенном списке, и в

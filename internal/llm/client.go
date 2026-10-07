@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/alibaba/open-code-review/internal/llm/codex"
 	"github.com/alibaba/open-code-review/internal/llm/copilot"
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/bedrock"
@@ -398,6 +399,7 @@ type FunctionDef struct {
 
 // ClientConfig holds configuration for connecting to an LLM service.
 type ClientConfig struct {
+	codex        *codex.Auth
 	URL          string            // Full API endpoint URL
 	APIKey       string            // Bearer token / API key
 	Model        string            // Default model override
@@ -485,6 +487,7 @@ func retryCodesMiddleware(codes []int) func(*http.Request, func(*http.Request) (
 // parameters rather than fields on ResolvedEndpoint.
 func NewLLMClient(ep ResolvedEndpoint, collector *RetryCollector, raw *RawHolder) LLMClient {
 	cfg := ClientConfig{
+		codex:          ep.Codex,
 		URL:            ep.URL,
 		APIKey:         ep.Token,
 		Model:          ep.Model,

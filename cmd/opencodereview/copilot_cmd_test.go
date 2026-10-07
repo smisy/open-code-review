@@ -369,7 +369,7 @@ func TestConfigSetReasoningEffort(t *testing.T) {
 	if err := setProviderValue(cfg, "providers.github-copilot.reasoning_effort", ""); err != nil || cfg.Providers["github-copilot"].ReasoningEffort != "" {
 		t.Fatalf("clearing: err = %v, value %q", err, cfg.Providers["github-copilot"].ReasoningEffort)
 	}
-	if err := setProviderValue(cfg, "providers.anthropic.reasoning_effort", "high"); err == nil || !strings.Contains(err.Error(), "applies only to the github-copilot provider") {
+	if err := setProviderValue(cfg, "providers.anthropic.reasoning_effort", "high"); err == nil || !strings.Contains(err.Error(), "applies only to the github-copilot and openai-codex providers") {
 		t.Fatalf("other provider: err = %v", err)
 	}
 }

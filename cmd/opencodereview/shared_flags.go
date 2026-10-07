@@ -65,7 +65,7 @@ func addModelFlag(cmd *cobra.Command, target *string) {
 
 func addReasoningEffortFlag(cmd *cobra.Command, target *string) {
 	levels := copilot.ReasoningEffortLevels()
-	cmd.Flags().StringVar(target, "reasoning-effort", "", "model reasoning effort for this run with the github-copilot provider: "+strings.Join(levels, " | ")+" (\"\" = configured or default "+copilot.DefaultReasoningEffort+")")
+	cmd.Flags().StringVar(target, "reasoning-effort", "", "model reasoning effort for github-copilot or openai-codex: "+strings.Join(levels, " | ")+" (off is Copilot-only; \"\" = configured or provider default)")
 	cmd.RegisterFlagCompletionFunc("reasoning-effort", completeEnum(levels...))
 }
 
