@@ -32,7 +32,7 @@ func TestCodexResolver(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configFile{Provider: "openai-codex", Model: "account-model", Providers: map[string]providerEntryConfig{"openai-codex": {}}}
-	ep, ok, err := tryProviderConfig(cfg, "new-account-model", "")
+	ep, ok, err := tryProviderConfig(cfg, "new-account-model", "", nil)
 	if err != nil || !ok || ep.Codex == nil || ep.Token != "" || ep.Model != "new-account-model" || ep.Protocol != ProtocolOpenAIResponses {
 		t.Fatalf("endpoint=%+v ok=%v err=%v", ep, ok, err)
 	}
@@ -50,20 +50,20 @@ func TestCodexResolver(t *testing.T) {
 	}
 	for _, entry := range []providerEntryConfig{{URL: "https://evil.example"}, {Protocol: ProtocolOpenAIChatCompletions}, {APIKey: "key"}, {APIKeyCmd: "printf key"}, {AuthHeader: "x-api-key"}} {
 		cfg.Providers = map[string]providerEntryConfig{"openai-codex": entry}
-		if _, _, err := tryProviderConfig(cfg, "", ""); err == nil {
+		if _, _, err := tryProviderConfig(cfg, "", "", nil); err == nil {
 			t.Errorf("accepted %+v", entry)
 		}
 	}
 	cfg.Providers = map[string]providerEntryConfig{"openai-codex": {}}
 	cfg.Model = ""
-	if _, _, err := tryProviderConfig(cfg, "", ""); err == nil {
+	if _, _, err := tryProviderConfig(cfg, "", "", nil); err == nil {
 		t.Fatal("accepted missing model")
 	}
 	cfg.Model = "model"
 	if err := os.Remove(filepath.Join(home, "auth.json")); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := tryProviderConfig(cfg, "", ""); err == nil {
+	if _, _, err := tryProviderConfig(cfg, "", "", nil); err == nil {
 		t.Fatal("accepted missing login")
 	}
 }
@@ -99,7 +99,7 @@ func TestCodexReasoningEffort(t *testing.T) {
 	}
 	for _, tc := range []struct{ configured, override string }{{"turbo", ""}, {"high", "off"}, {"", "ultra"}} {
 		cfg := configFile{Provider: "openai-codex", Model: "gpt-6.1-sol", Providers: map[string]providerEntryConfig{"openai-codex": {ReasoningEffort: tc.configured}}}
-		if _, _, err := tryProviderConfig(cfg, "", tc.override); err == nil || !strings.Contains(err.Error(), "invalid reasoning effort") {
+		if _, _, err := tryProviderConfig(cfg, "", tc.override, nil); err == nil || !strings.Contains(err.Error(), "invalid reasoning effort") {
 			t.Fatalf("invalid effort was not rejected before login: %v", err)
 		}
 	}

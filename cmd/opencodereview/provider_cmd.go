@@ -158,6 +158,9 @@ func applyCustomProviderConfig(configPath string, cfg *Config, result providerTU
 	if result.provider == "" {
 		return fmt.Errorf("provider name is required")
 	}
+	if err := validateProviderName(result.provider); err != nil {
+		return err
+	}
 	model := result.resolvedModel()
 	if model == "" {
 		return fmt.Errorf("model is required")
@@ -237,19 +240,15 @@ func applyCustomProviderConfig(configPath string, cfg *Config, result providerTU
 // command as unset, so without this a command of "   " would satisfy the check
 // here and then fail resolution with "no api_key or api_key_cmd configured".
 //
-// An ambient-auth provider has no credential to save at all: demanding one would
-// make it impossible to configure, since the credentials live in the AWS chain
+// Ambient-auth and external-auth providers have no credential to save here:
+// their credentials come from the environment chain or a dedicated token store
 // rather than the config file.
-func checkAPIKeyRequirement(providerName, apiKey, apiKeyCmd string, preset llm.Provider, isPreset bool) error {
+func checkAPIKeyRequirement(providerName, apiKey, apiKeyCmd string, preset llm.Provider, isPreset bool, entry ProviderEntry) error {
 	if apiKey != "" || strings.TrimSpace(apiKeyCmd) != "" {
 		return nil
 	}
 	switch {
-	case isPreset && (preset.AmbientAuth || preset.CodexAuth):
-		return nil
-	case isPreset && preset.CopilotAuth:
-		// The credential comes from 'ocr copilot login', which lives outside
-		// config.json; resolution reports a missing login with that hint.
+	case isPreset && providerUsesExternalCredentials(preset, entry):
 		return nil
 	case isPreset && preset.EnvVar != "":
 		if os.Getenv(preset.EnvVar) == "" {
@@ -259,6 +258,18 @@ func checkAPIKeyRequirement(providerName, apiKey, apiKeyCmd string, preset llm.P
 	default:
 		return fmt.Errorf("API key is required for provider %s (configure it or set providers.%s.api_key_cmd)", providerName, providerName)
 	}
+}
+
+func providerUsesExternalCredentials(preset llm.Provider, entry ProviderEntry) bool {
+	// Copilot and Codex sign in through 'ocr copilot login' and 'ocr codex
+	// login', which keep their credentials outside config.json.
+	if preset.ExternalAuth || preset.CopilotAuth || preset.CodexAuth {
+		return true
+	}
+	if entry.Protocol != "" {
+		return llm.NormalizeProtocol(entry.Protocol) == llm.ProtocolAnthropicBedrock
+	}
+	return preset.AmbientAuth || llm.NormalizeProtocol(preset.Protocol) == llm.ProtocolAnthropicBedrock
 }
 
 func applyOfficialProviderConfig(configPath string, cfg *Config, result providerTUIResult) error {
@@ -272,7 +283,7 @@ func applyOfficialProviderConfig(configPath string, cfg *Config, result provider
 
 	preset, isPreset := llm.LookupProvider(result.provider)
 
-	if err := checkAPIKeyRequirement(result.provider, result.apiKey, cfg.Providers[result.provider].APIKeyCmd, preset, isPreset); err != nil {
+	if err := checkAPIKeyRequirement(result.provider, result.apiKey, cfg.Providers[result.provider].APIKeyCmd, preset, isPreset, cfg.Providers[result.provider]); err != nil {
 		return err
 	}
 
