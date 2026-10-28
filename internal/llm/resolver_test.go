@@ -5,6 +5,7 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alibaba/open-code-review/internal/chatgptauth"
 	"github.com/alibaba/open-code-review/internal/llm/codex"
 )
 
@@ -1408,6 +1410,7 @@ func TestResolveEndpointWithModelOverride_AllBuiltInProvidersAcceptUnlistedModel
 	for _, provider := range ListProviders() {
 		t.Run(provider.Name, func(t *testing.T) {
 			entry := providerEntryConfig{APIKey: "test-key", AWSRegion: "us-west-2"}
+			var credentialCalls int
 			if provider.CodexAuth {
 				setTestHome(t, t.TempDir())
 				home, err := codex.Home()
@@ -1421,6 +1424,18 @@ func TestResolveEndpointWithModelOverride_AllBuiltInProvidersAcceptUnlistedModel
 					t.Fatal(err)
 				}
 				entry = providerEntryConfig{}
+			} else if provider.Name == "chatgpt" {
+				entry = providerEntryConfig{}
+				oldCredentials, oldModels := chatGPTCredentials, chatGPTModels
+				t.Cleanup(func() { chatGPTCredentials, chatGPTModels = oldCredentials, oldModels })
+				chatGPTCredentials = func(context.Context, string) (*chatgptauth.Auth, error) {
+					credentialCalls++
+					return &chatgptauth.Auth{ClientID: "account-fixture", AccessToken: "siwc-fixture"}, nil
+				}
+				chatGPTModels = func(context.Context, *chatgptauth.Auth) ([]chatgptauth.Model, error) {
+					t.Fatal("explicit ChatGPT model queried the catalog")
+					return nil, nil
+				}
 			}
 			path, _ := writeResolverConfig(t, configFile{
 				Provider: provider.Name,
@@ -1436,7 +1451,11 @@ func TestResolveEndpointWithModelOverride_AllBuiltInProvidersAcceptUnlistedModel
 			if err != nil || ep.Model != model || ep.Provider != provider.Name {
 				t.Fatalf("endpoint = %+v, error = %v", ep, err)
 			}
-			if strings.Count(stderr, "[ocr] WARNING: model") != 1 || !strings.Contains(stderr, fmt.Sprintf("for provider %q", provider.Name)) {
+			if provider.Name == "chatgpt" {
+				if credentialCalls != 1 || !ep.ChatGPTPlan || !ep.RequiresStreaming || !ep.RejectsSamplingParams || ep.URL != chatgptauth.Resource || ep.Token != "siwc-fixture" || ep.ChatGPTAccount != "account-fixture" || stderr != "" {
+					t.Fatalf("endpoint = %+v, credential calls = %d, stderr = %q", ep, credentialCalls, stderr)
+				}
+			} else if strings.Count(stderr, "[ocr] WARNING: model") != 1 || !strings.Contains(stderr, fmt.Sprintf("for provider %q", provider.Name)) {
 				t.Errorf("stderr = %q, want one warning for %s", stderr, provider.Name)
 			}
 		})
@@ -2884,5 +2903,51 @@ func TestResolveEndpoint_InvalidEnvURLNamesSourceAndVariable(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestResolveEndpointWithOptions_DefaultRequestTimeout(t *testing.T) {
+	clearAllEnv(t)
+	t.Setenv("OCR_LLM_URL", "https://env.example.com/v1")
+	t.Setenv("OCR_LLM_TOKEN", "env-token")
+	path, _ := writeResolverConfig(t, configFile{Llm: llmFileConfig{Model: "config-model", URL: "https://config.example.com/v1", AuthToken: "config-token"}})
+
+	ep, err := ResolveEndpointWithOptions(path, ResolveOptions{Model: "config-model"})
+	if err != nil {
+		t.Fatalf("ResolveEndpointWithOptions: %v", err)
+	}
+	if ep.Timeout != 0 {
+		t.Fatalf("ep.Timeout = %v, want 0 (client default)", ep.Timeout)
+	}
+}
+
+func TestResolveEndpointWithOptions_EnvRequestTimeout(t *testing.T) {
+	clearAllEnv(t)
+	t.Setenv("OCR_LLM_URL", "https://env.example.com/v1")
+	t.Setenv("OCR_LLM_TOKEN", "env-token")
+	t.Setenv("OCR_LLM_TIMEOUT", "45")
+	path, _ := writeResolverConfig(t, configFile{Llm: llmFileConfig{Model: "config-model", URL: "https://config.example.com/v1", AuthToken: "config-token"}})
+
+	ep, err := ResolveEndpointWithOptions(path, ResolveOptions{})
+	if err != nil {
+		t.Fatalf("ResolveEndpointWithOptions: %v", err)
+	}
+	if ep.Timeout != 45*time.Second {
+		t.Fatalf("ep.Timeout = %v, want env's 45s", ep.Timeout)
+	}
+}
+
+func TestResolveEndpointWithOptions_ConfigRequestTimeout(t *testing.T) {
+	clearAllEnv(t)
+	t.Setenv("OCR_LLM_URL", "https://env.example.com/v1")
+	t.Setenv("OCR_LLM_TOKEN", "env-token")
+	path, _ := writeResolverConfig(t, configFile{Llm: llmFileConfig{Model: "config-model", URL: "https://config.example.com/v1", AuthToken: "config-token", TimeoutSec: 60}})
+
+	ep, err := ResolveEndpointWithOptions(path, ResolveOptions{})
+	if err != nil {
+		t.Fatalf("ResolveEndpointWithOptions: %v", err)
+	}
+	if ep.Timeout != 60*time.Second {
+		t.Fatalf("ep.Timeout = %v, want config's 60s", ep.Timeout)
 	}
 }

@@ -272,7 +272,7 @@ func TestCopilotCommandsRegistered(t *testing.T) {
 func TestCheckAPIKeyRequirementAllowsCopilot(t *testing.T) {
 	t.Setenv(copilot.EnvToken, "")
 	p, _ := llm.LookupProvider("github-copilot")
-	if err := checkAPIKeyRequirement("github-copilot", "", "", p, true); err != nil {
+	if err := checkAPIKeyRequirement("github-copilot", "", "", p, true, ProviderEntry{}); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -27,14 +27,16 @@ type Provider struct {
 	BaseURL     string
 	AuthHeader  string // Anthropic-only; empty for OpenAI-compatible
 	EnvVar      string // environment variable name for API key fallback
-	Models      []string
 
 	// AmbientAuth marks a provider whose credentials come from the
 	// environment's own chain rather than an api_key — AWS SigV4, for
 	// instance. The resolver skips its api_key requirement for these, because
 	// there is no key to configure and demanding one would make the provider
 	// impossible to use.
-	AmbientAuth bool
+	AmbientAuth           bool
+	ExternalAuth          bool
+	RequiresStreaming     bool
+	RejectsSamplingParams bool
 
 	// CopilotAuth marks the GitHub Copilot provider: its credential is a GitHub
 	// OAuth token that is exchanged for short-lived Copilot API tokens at
@@ -43,6 +45,8 @@ type Provider struct {
 	CopilotAuth bool
 	// CodexAuth uses a ChatGPT subscription login rather than an API key.
 	CodexAuth bool
+
+	Models []string
 }
 
 // After modifying the built-in provider registry, run `go generate ./internal/llm`
@@ -91,6 +95,16 @@ var registry = []Provider{
 			"global.anthropic.claude-sonnet-5",
 			"global.anthropic.claude-opus-4-8",
 		},
+	},
+	{
+		Name:                  "chatgpt",
+		DisplayName:           "ChatGPT plan (Sign in with ChatGPT preview)",
+		Protocol:              ProtocolOpenAIResponses,
+		BaseURL:               "https://api.openai.com/v1",
+		ExternalAuth:          true,
+		RequiresStreaming:     true,
+		RejectsSamplingParams: true,
+		Models:                []string{},
 	},
 	{
 		Name:        "openai",

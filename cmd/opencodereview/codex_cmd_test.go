@@ -55,7 +55,7 @@ func TestSelectCodexProvider(t *testing.T) {
 		t.Fatalf("model=%v", cfg.Providers)
 	}
 	p, _ := llm.LookupProvider("openai-codex")
-	if err := checkAPIKeyRequirement(p.Name, "", "", p, true); err != nil {
+	if err := checkAPIKeyRequirement(p.Name, "", "", p, true, ProviderEntry{}); err != nil {
 		t.Fatal(err)
 	}
 }
