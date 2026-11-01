@@ -16,8 +16,16 @@ func LastN(path string, n int) []string {
 // Average returns the mean of values.
 func Average(values []int) int {
 	sum := 0
-	for i := 0; i <= len(values); i++ {
+	for i := 0; i < len(values); i++ {
 		sum += values[i]
 	}
 	return sum / len(values)
+}
+
+// Save writes lines to path, one per line.
+func Save(path string, lines []string) {
+	f, _ := os.Create(path)
+	for _, l := range lines {
+		f.WriteString(l + "\n")
+	}
 }
