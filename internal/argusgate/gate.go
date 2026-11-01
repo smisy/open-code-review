@@ -29,3 +29,8 @@ func Save(path string, lines []string) {
 		f.WriteString(l + "\n")
 	}
 }
+
+// Ratio returns a as a percentage of b.
+func Ratio(a, b int) int {
+	return a * 100 / b
+}
