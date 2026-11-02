@@ -14,3 +14,17 @@ func Clamp(v, lo, hi int) int {
 	}
 	return v
 }
+
+// ClampFloat returns v limited to the closed range [lo, hi]. When lo > hi the bounds are swapped.
+func ClampFloat(v, lo, hi float64) float64 {
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
