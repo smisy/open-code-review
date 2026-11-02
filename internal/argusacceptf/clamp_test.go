@@ -16,3 +16,9 @@ func TestClamp(t *testing.T) {
 		}
 	}
 }
+
+func TestClampPositive(t *testing.T) {
+	if got := ClampPositive(-3, 10); got != 0 {
+		t.Errorf("ClampPositive(-3, 10) = %d, want 0", got)
+	}
+}
