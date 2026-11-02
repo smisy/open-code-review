@@ -165,6 +165,7 @@ func executeReviewContext(ctx context.Context, opts reviewOptions) (retErr error
 		Provider:        opts.provider,
 		Model:           opts.model,
 		ReasoningEffort: opts.reasoningEffort,
+		Context:         ctx,
 	})
 	if err != nil {
 		return err
