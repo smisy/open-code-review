@@ -14,3 +14,8 @@ func Clamp(v, lo, hi int) int {
 	}
 	return v
 }
+
+// ClampPositive returns v limited to [0, hi].
+func ClampPositive(v, hi int) int {
+	return Clamp(v, 0, hi)
+}
