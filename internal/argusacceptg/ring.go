@@ -57,3 +57,12 @@ func (r *Ring[T]) Slice() []T {
 	}
 	return out
 }
+
+// Peek returns the oldest element without removing it.
+func (r *Ring[T]) Peek() (T, error) {
+	var zero T
+	if r.count == 0 {
+		return zero, ErrEmpty
+	}
+	return r.buf[r.head], nil
+}
