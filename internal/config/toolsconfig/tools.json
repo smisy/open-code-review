@@ -42,7 +42,7 @@
               "properties": {
                 "content": {
                   "type": "string",
-                  "description": "Comment content, typically a brief description of code issues and corresponding suggestions."
+                  "description": "Comment content in plain, simple technical English: what goes wrong, in which concrete case, and the smallest fix. Name other code by its repository-relative path, as `path/to/file.go:42`, never a bare file name."
                 },
                 "existing_code": {
                   "type": "string",
